@@ -18,7 +18,9 @@ import System.Environment
 import Data.Either
 import Data.List
 import Data.String.HT
+import Text.Parsec.Pos
 import Text.Parsec.Prim
+import Text.Parsec.Error
 import Language.Haskell.TH.Lib
 import Language.Haskell.TH.Ppr
 import Language.Haskell.TH.Quote
@@ -33,17 +35,20 @@ runClr = QuasiQuoter { quoteExp = parseExpQ
 
 parseExpQ :: String -> Q Exp
 parseExpQ str = do
-  parsed <- returnQ $ partitionEithers $ map (\l-> case (parse parseStmt "1" l) of
-    Left a -> Left l
-    Right b -> Right b) (filter (\l-> not $ null $ trim l) (lines str))
-  eexp <- runIO (if (null $ fst parsed) then
-    compile (snd parsed)
-  else
-    fail $ foldl' (\a-> \s-> a ++ "A Syntax error occured \"" ++ s ++ "\"") "" (fst parsed))
-  case eexp of
-    Left s -> fail s
-    Right exp -> return exp
-    
+  loc <- location
+  let lineStart = fst $ loc_start loc
+  parsed <- return . snd $ foldl (\(n,p)-> \s-> case (trim s) of
+    [] -> (n+1,p)
+    (x:xs) -> (n+1,(parse (parseStmtLine n) "1" (x:xs)):p)
+     ) (lineStart,[]) (lines str)
+  let errMsg = foldr (\e-> \s-> s ++ "Syntax error on line " ++ (show $ sourceLine $ errorPos e) ++ "\n") "In: [runClr|...\n" (lefts parsed)
+  if (not $ null errMsg) then
+    fail errMsg
+  else do
+    eexp <- runIO $ compile (rights parsed)
+    case eexp of
+      Left s -> fail s
+      Right exp -> return exp
 
 parsePatQ :: String -> Q Pat
 parsePatQ s = do
