@@ -30,3 +30,14 @@ instance Show Stmt where
   show (BindStmt sym exp) = "BindStmt (" ++ (show sym) ++ "<- " ++ (show exp) ++ ")"
   show (NoBindStmt exp) = "NoBindStmt (" ++ (show exp) ++ ")"
 
+
+stmtGetType :: Stmt -> CLRType
+stmtGetType s = case s of
+  BindStmt sym e -> expGetType e
+  NoBindStmt e -> expGetType e
+
+expGetType :: Exp -> CLRType
+expGetType e = case e of
+  New t a -> t
+  Invoke t m a -> t
+
