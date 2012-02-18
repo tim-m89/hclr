@@ -42,7 +42,7 @@ parseExpQ str = do
     (x:xs) -> (n+1,(parse (parseStmtLine n) "1" (x:xs)):p)
      ) (lineStart,[]) (lines str)
   let errMsg = foldr (\e-> \s-> s ++ "Syntax error on line " ++ (show $ sourceLine $ errorPos e) ++ "\n") "In: [runClr|...\n" (lefts parsed)
-  if (not $ null errMsg) then
+  if (length errMsg > 16) then
     fail errMsg
   else do
     eexp <- runIO $ compile (rights parsed)
