@@ -8,7 +8,6 @@ module Foreign.HCLR (
   runClr
 ) where
 
-import Foreign.HCLR.Binding
 import Foreign.HCLR.Parser
 import Foreign.HCLR.CodeGen
 import Foreign.Ptr

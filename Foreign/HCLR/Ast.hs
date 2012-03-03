@@ -41,3 +41,12 @@ expGetType e = case e of
   New t a -> t
   Invoke t m a -> t
 
+newtype Assembly = Assembly String
+
+
+instance Eq CLRType where
+  (CLRType a) == (CLRType b) = a == b 
+
+instance Ord CLRType where
+  compare (CLRType a) (CLRType b) = compare a b
+
