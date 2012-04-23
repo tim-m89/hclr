@@ -11,10 +11,13 @@ import Foreign.C
 import qualified Foreign.Concurrent as FC
 import Foreign.ForeignPtr
 import Foreign.Marshal.Array
-import qualified Foreign.Marshal.Utils as FU
+import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 import System.Environment
+
+import qualified Data.Text as T
+import Data.Text.Foreign
 
 type GBool = CInt
 gboolTrue = 1
@@ -73,6 +76,11 @@ foreign import ccall mono_class_get_methods :: MonoClassPtr -> Ptr CIntPtr -> IO
 foreign import ccall mono_method_get_name :: MonoMethodPtr -> IO CString
 foreign import ccall mono_method_signature :: MonoMethodPtr -> IO MonoMethodSignaturePtr
 
+foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO Word32
+foreign import ccall "marshal.c getString" getString :: Word32 -> IO (Ptr Word16)
+foreign import ccall "marshal.c stringLength" stringLength :: Word32 -> IO Int32
+
+newtype Object = Object {oid :: Word32}
 
 monoLoadAssembly :: String -> IO MonoAssemblyPtr
 monoLoadAssembly s = withCString s (\c-> mono_assembly_name_new c >>= \n-> mono_assembly_load n nullPtr nullPtr)
@@ -82,10 +90,6 @@ monoInit = do
   mono_config_parse nullPtr
   getProgName >>= flip withCString mono_jit_init
 
-
---
--- Shared API
---
 
 withRuntime :: IO b -> IO b
 withRuntime x = bracket monoInit mono_jit_cleanup (\z-> x)
@@ -101,4 +105,23 @@ assemHasType (Assembly a) (CLRType t) = do
   print ns
   print typ
   return (cls /= nullPtr)
+
+
+class Box a where
+  box :: a -> IO Object
+  unBox :: Object -> IO a
+  arg :: a -> (Int32 -> Int32 -> IO b) -> IO b
+  arg x f = do
+    Object b <- box x
+    with b $ \p->
+      f 1 (fromIntegral $ ptrToWordPtr p)
+
+instance Box T.Text where
+  box x = useAsPtr x $ \p-> \l->
+    boxString (fromIntegral $ ptrToWordPtr p) (fromIntegral l) >>= return . Object
+  unBox (Object x) = do
+    len <- stringLength x
+    s <- getString x
+    fromPtr s (fromIntegral len)
+
 

@@ -5,16 +5,7 @@ import Foreign.HCLR.Ast
 import qualified Language.Haskell.TH.Syntax as TH
 import qualified Data.Map as Map
 import Data.String.HT
-import Foreign.HCLR.Mono
-
-data OpCode
-  = OpNop
-  | OpBreak
-  | OpLoadArg0
-  | OpLoadArg1
-  | OpLoadArg2
-  | OpLoadArg3
-
+import Foreign.HCLR.Binding
 
 typeAssem :: CLRType -> IO Assembly
 typeAssem = undefined
