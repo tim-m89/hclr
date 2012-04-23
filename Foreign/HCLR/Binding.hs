@@ -5,9 +5,9 @@ module Foreign.HCLR.Binding (
   assemHasType ) where
 
 #if (mingw32_HOST_OS)
-import Foreign.HCLR.Win
+import Foreign.HCLR.Binding.Win
 #else
-import Foreign.HCLR.Mono
+import Foreign.HCLR.Binding.Mono
 #endif
 
 

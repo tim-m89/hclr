@@ -1,21 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Foreign.HCLR.Mono where
+module Foreign.HCLR.Binding.Mono where
 
 import Control.Exception
-import Data.Int
-import Data.Word
 import Data.List
-import Foreign.HCLR.Ast
+import Foreign
 import Foreign.C
-import qualified Foreign.Concurrent as FC
-import Foreign.ForeignPtr
-import Foreign.Marshal.Array
-import Foreign.Marshal.Utils
-import Foreign.Ptr
-import Foreign.Storable
+import Foreign.HCLR.Ast
+import Foreign.HCLR.Binding.Common
 import System.Environment
-
 import qualified Data.Text as T
 import Data.Text.Foreign
 
@@ -80,8 +73,6 @@ foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO Wo
 foreign import ccall "marshal.c getString" getString :: Word32 -> IO (Ptr Word16)
 foreign import ccall "marshal.c stringLength" stringLength :: Word32 -> IO Int32
 
-newtype Object = Object {oid :: Word32}
-
 monoLoadAssembly :: String -> IO MonoAssemblyPtr
 monoLoadAssembly s = withCString s (\c-> mono_assembly_name_new c >>= \n-> mono_assembly_load n nullPtr nullPtr)
 
@@ -106,15 +97,6 @@ assemHasType (Assembly a) (CLRType t) = do
   print typ
   return (cls /= nullPtr)
 
-
-class Box a where
-  box :: a -> IO Object
-  unBox :: Object -> IO a
-  arg :: a -> (Int32 -> Int32 -> IO b) -> IO b
-  arg x f = do
-    Object b <- box x
-    with b $ \p->
-      f 1 (fromIntegral $ ptrToWordPtr p)
 
 instance Box T.Text where
   box x = useAsPtr x $ \p-> \l->
