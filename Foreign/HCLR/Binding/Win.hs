@@ -1,4 +1,7 @@
-module Foreign.HCLR.Binding.Win
+module Foreign.HCLR.Binding.Win (
+  module Foreign.HCLR.Common,
+  module Foreign.HCLR.Win
+) where
 
 import Foreign
 import Foreign.HCLR.Binding.Common

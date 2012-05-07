@@ -1,6 +1,9 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Foreign.HCLR.Binding.Mono where
+module Foreign.HCLR.Binding.Mono (
+  module Foreign.HCLR.Binding.Common,
+  module Foreign.HCLR.Binding.Mono
+) where
 
 import Control.Exception
 import Data.List

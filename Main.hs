@@ -6,7 +6,7 @@ import Foreign.HCLR
 
 main :: IO ()
 main = [runClr|
-h <-  new System.Windows.Forms.Form "Hello World"
+h <-  new System.Windows.Forms.Form
 |]
 
 
