@@ -2,7 +2,27 @@
 extern "C" {
 #endif
 
-#if defined _WIN32
+#ifdef MONO
+
+#include <stdint.h>
+#include <mono/metadata/appdomain.h>
+
+uint32_t boxString(uint32_t ptr, int32_t length)
+{
+  return mono_gchandle_new(mono_string_new_utf16(mono_domain_get(), (mono_unichar2 *)ptr, length), 0);
+}
+
+uint16_t * getString(uint32_t a)
+{
+  return (uint16_t *)mono_string_chars((MonoString *)mono_gchandle_get_target(a));
+}
+
+int32_t stringLength(uint32_t a)
+{
+  return mono_string_length((MonoString *)mono_gchandle_get_target(a));
+}
+
+#else
 
 #include <windows.h>
 #include <stdint.h>
@@ -148,26 +168,6 @@ void WINAPI unBoxString(int32_t a, int32_t ptr)
 {
   unBoxString_t func = (unBoxString_t)funcPointers[17];
   func(a, ptr);
-}
-
-#else
-
-#include <stdint.h>
-#include <mono/metadata/appdomain.h>
-
-uint32_t boxString(uint32_t ptr, int32_t length)
-{
-  return mono_gchandle_new(mono_string_new_utf16(mono_domain_get(), (mono_unichar2 *)ptr, length), 0);
-}
-
-uint16_t * getString(uint32_t a)
-{
-  return (uint16_t *)mono_string_chars((MonoString *)mono_gchandle_get_target(a));
-}
-
-int32_t stringLength(uint32_t a)
-{
-  return mono_string_length((MonoString *)mono_gchandle_get_target(a));
 }
 
 #endif

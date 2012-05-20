@@ -42,17 +42,24 @@ Build-type:          Simple
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
+flag use_mono
+    description: use mono instead of .Net
+    default: False
 
 Executable hclr2
   -- .hs or .lhs file containing the Main module.
   C-sources: marshal.c
   Main-is: Main.hs            
-  
+
+  if !os(windows) || flag(use_mono)
+    Cpp-options: -DMONO
+    cc-options: -DMONO
+    Extra-libraries: glib-2.0, mono-2.0, pthread
+    Include-dirs: /usr/local/include/mono-2.0/
+ 
   -- Packages needed in order to build this package.
   Build-depends: parsec, base, containers, template-haskell, text, utility-ht
  
-  Extra-libraries: glib-2.0, mono-2.0, pthread
-  Include-dirs: /usr/local/include/mono-2.0/
       
   
   -- Modules not exported by this package.
