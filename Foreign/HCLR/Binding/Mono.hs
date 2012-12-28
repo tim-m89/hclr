@@ -1,7 +1,6 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ForeignFunctionInterface, TypeSynonymInstances, FlexibleInstances, DoAndIfThenElse #-}
 
 module Foreign.HCLR.Binding.Mono (
-  module Foreign.HCLR.Binding.Common,
   module Foreign.HCLR.Binding.Mono
 ) where
 
@@ -10,10 +9,10 @@ import Data.List
 import Foreign
 import Foreign.C
 import Foreign.HCLR.Ast
-import Foreign.HCLR.Binding.Common
 import System.Environment
 import qualified Data.Text as T
 import Data.Text.Foreign
+import qualified Foreign.Concurrent as FC
 
 type GBool = CInt
 gboolTrue = 1
@@ -52,7 +51,7 @@ foreign import ccall mono_string_new_wrapper :: CString -> IO MonoStringPtr
 foreign import ccall mono_method_desc_new :: CString -> GBool -> IO MonoMethodDescPtr
 foreign import ccall mono_method_desc_search_in_image :: MonoMethodDescPtr -> MonoImagePtr -> IO MonoMethodPtr
 foreign import ccall mono_method_desc_free :: MonoMethodDescPtr -> IO ()
-foreign import ccall mono_runtime_invoke :: MonoMethodPtr -> Ptr () -> Ptr MonoObjectPtr -> Ptr () -> IO MonoObjectPtr
+foreign import ccall mono_runtime_invoke :: MonoMethodPtr -> MonoObjectPtr -> Ptr MonoObjectPtr -> Ptr () -> IO MonoObjectPtr
 foreign import ccall mono_domain_get :: IO MonoDomainPtr
 foreign import ccall mono_gchandle_new  :: MonoObjectPtr -> GBool -> IO MonoHandle
 foreign import ccall mono_gchandle_get_target :: MonoHandle -> IO MonoObjectPtr
@@ -72,9 +71,9 @@ foreign import ccall mono_class_get_methods :: MonoClassPtr -> Ptr CIntPtr -> IO
 foreign import ccall mono_method_get_name :: MonoMethodPtr -> IO CString
 foreign import ccall mono_method_signature :: MonoMethodPtr -> IO MonoMethodSignaturePtr
 
-foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO Word32
-foreign import ccall "marshal.c getString" getString :: Word32 -> IO (Ptr Word16)
-foreign import ccall "marshal.c stringLength" stringLength :: Word32 -> IO Int32
+foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO MonoHandle
+foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
+foreign import ccall "marshal.c stringLength" stringLength :: MonoHandle -> IO Int32
 
 monoLoadAssembly :: String -> IO MonoAssemblyPtr
 monoLoadAssembly s = withCString s (\c-> mono_assembly_name_new c >>= \n-> mono_assembly_load n nullPtr nullPtr)
@@ -100,13 +99,100 @@ assemHasType (Assembly a) (CLRType t) = do
   print typ
   return (cls /= nullPtr)
 
+withObject :: Object -> (Word32 -> IO a) -> IO a
+withObject (Object fp) f = withForeignPtr fp $ \p-> do
+  x <- peek p
+  f x
+
+data Object = NullObject | Object {oid :: ForeignPtr MonoHandle}
+  
+
+objectGetHandle :: Object -> IO MonoHandle
+objectGetHandle (Object fp) =  withForeignPtr fp peek
+
+objectGetTarget :: Object -> IO MonoObjectPtr
+objectGetTarget obj = case obj of
+  (Object fp) -> objectGetHandle obj >>= mono_gchandle_get_target
+  NullObject -> return nullPtr
+
+class Box a where
+  box :: a -> IO Object
+  unBox :: Object -> IO a
+  arg :: a -> (Ptr MonoObjectPtr -> IO b) -> IO b
+  arg x f = do
+      obj <- box x
+      t <- objectGetTarget obj
+      withArray [t] f
+
 
 instance Box T.Text where
-  box x = useAsPtr x $ \p-> \l->
-    boxString (fromIntegral $ ptrToWordPtr p) (fromIntegral l) >>= return . Object
-  unBox (Object x) = do
+  box x = do
+    domain <- mono_domain_get
+    string <- useAsPtr x (\t-> \l-> mono_string_new_utf16 domain t (fromIntegral l) )
+    handle <- mono_gchandle_new string gboolTrue
+    fp <- mallocForeignPtr
+    withForeignPtr fp (\p-> poke p handle)
+    FC.addForeignPtrFinalizer fp (mono_gchandle_free handle)
+    return (Object fp)
+  unBox ob = withObject ob $ \x-> do
     len <- stringLength x
     s <- getString x
     fromPtr s (fromIntegral len)
 
+instance Box () where
+  box () = return NullObject
+  unBox obj = return ()
+  arg () f = withArray [] f
+ 
+assemblyImage :: String -> IO MonoImagePtr
+assemblyImage s = do
+  assem <- monoLoadAssembly s
+  if assem == nullPtr then do
+    putStrLn "null assem"
+    return nullPtr
+  else
+    mono_assembly_get_image assem
 
+
+invokeMethod :: Box a => Assembly -> String -> String -> Object -> a -> IO Object
+invokeMethod (Assembly assem) t mth target args = do
+  let funName = (t ++ ":" ++ mth)
+  image <- assemblyImage assem
+  if image == nullPtr then
+    putStrLn "image null" >> return NullObject
+  else do
+    desc <- withCString funName (\c-> mono_method_desc_new c gboolTrue)
+    method <- mono_method_desc_search_in_image desc image
+    mono_method_desc_free desc
+    if (method == nullPtr) then
+      error ("Cannot find method: " ++ funName)
+    else do
+      arg args $ \argP-> do
+        targetP <- objectGetTarget target
+        ret <- mono_runtime_invoke method targetP argP nullPtr >>= flip mono_gchandle_new gboolTrue
+        fp <- mallocForeignPtr
+        withForeignPtr fp (\p-> poke p ret)
+        FC.addForeignPtrFinalizer fp (mono_gchandle_free ret)
+        return $ Object fp
+
+
+monoGetClass :: String -> String -> String -> IO MonoClassPtr
+monoGetClass assem ns n = assemblyImage assem >>= \image-> withCString ns (\nsC-> withCString n (\nC-> mono_class_from_name image nsC nC) ) 
+
+monoObjectNew :: MonoClassPtr -> IO Object
+monoObjectNew cls = do
+  domain <- mono_domain_get
+  objPtr <- mono_object_new domain cls
+  if objPtr==nullPtr then
+    error "null object"
+  else do
+    obj <- mono_gchandle_new objPtr gboolTrue
+    fp <- mallocForeignPtr
+    withForeignPtr fp (\p-> poke p obj)
+    FC.addForeignPtrFinalizer fp (mono_gchandle_free obj)
+    return (Object fp)
+
+
+{-objectNew :: Box a => Assembly -> String -> a -> IO Object
+objectNew (Assembly assem) t args = do
+-}

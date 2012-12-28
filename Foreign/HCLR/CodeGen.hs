@@ -26,5 +26,17 @@ compile x = withRuntime $ do
   putStrLn "Compiling HCLR" 
   let types = map stmtGetType x
   typeAssemMap <- getTypeAssemMap types
-  return $ Right $ (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE [])
+  let doStmt = stmtr typeAssemMap
+  z <- mapM doStmt x 
+  return $ Right $ TH.DoE $ z
+
+stmtr :: TypeAssemMap -> Stmt -> IO TH.Stmt
+stmtr tam s = case s of
+  BindStmt (Symbol name) exp -> expr tam exp >>= \e-> return $ TH.BindS (TH.VarP (TH.mkName name) )  e
+  _ -> return $ TH.NoBindS $ (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE [])
+
+expr :: TypeAssemMap -> Exp -> IO TH.Exp
+expr tam e = case e of
+  New typ args -> undefined
+  Invoke typ mth args -> undefined
 
