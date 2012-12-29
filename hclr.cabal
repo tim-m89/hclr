@@ -46,7 +46,7 @@ flag use_mono
     description: use mono instead of .Net
     default: False
 
-Executable hclr2
+Executable hclr
   -- .hs or .lhs file containing the Main module.
   C-sources: marshal.c
   Main-is: Main.hs            

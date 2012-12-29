@@ -143,6 +143,10 @@ instance Box () where
   box () = return NullObject
   unBox obj = return ()
   arg () f = withArray [] f
+
+instance Box Object where
+  box x = return x
+  unBox x = return x
  
 assemblyImage :: String -> IO MonoImagePtr
 assemblyImage s = do
@@ -192,7 +196,29 @@ monoObjectNew cls = do
     FC.addForeignPtrFinalizer fp (mono_gchandle_free obj)
     return (Object fp)
 
+nsPermute :: [String] -> [(String,String)]
+nsPermute (x:xs) = map (\(t1,t2)-> (intercalate "." t1, intercalate "." t2)) $ nsPermute' (length xs) (x:xs)
+  where nsPermute' i z = splitAt i z : if i > 1 then nsPermute' (i-1) z else []
 
-{-objectNew :: Box a => Assembly -> String -> a -> IO Object
-objectNew (Assembly assem) t args = do
--}
+
+monoFindClass :: String -> [String] -> IO MonoClassPtr
+monoFindClass assem typ = do
+  ptrs <- mapM (uncurry (monoGetClass assem)) $ nsPermute typ
+  found <- return $ find (/= nullPtr) ptrs
+  case found of
+    Just x -> return x
+    Nothing -> return nullPtr
+
+splitOn :: Eq a => a -> [a] -> [[a]]
+splitOn _ [] = []
+splitOn x xs = 
+ case break (==x) xs of
+   (ys,[])   -> [ys]
+   (ys,_:zs) -> ys:splitOn x zs
+
+objectNew :: Assembly -> String -> IO Object
+objectNew (Assembly assem) t = do
+  let typ = splitOn '.' t
+  cls <- monoFindClass assem typ
+  monoObjectNew cls
+
