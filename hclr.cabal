@@ -59,6 +59,8 @@ Executable hclr
     Build-depends: parsec, base, containers, template-haskell, text, utility-ht
   else
     Build-depends: parsec, base, containers, template-haskell, text, utility-ht, bytestring, Win32
+    Extra-Libraries: ole32, oleaut32
+
  
       
   
