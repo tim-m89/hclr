@@ -216,9 +216,11 @@ splitOn x xs =
    (ys,[])   -> [ys]
    (ys,_:zs) -> ys:splitOn x zs
 
-objectNew :: Assembly -> String -> IO Object
+objectNew :: Box a => Assembly -> String -> a -> IO Object
 objectNew (Assembly assem) t = do
   let typ = splitOn '.' t
   cls <- monoFindClass assem typ
-  monoObjectNew cls
+  o <- monoObjectNew cls
+  invokeMethod (Assembly assem) t ".ctor()" o ()
+  return o
 
