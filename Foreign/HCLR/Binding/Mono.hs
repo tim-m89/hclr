@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, TypeSynonymInstances, FlexibleInstances, DoAndIfThenElse #-}
+{-# LANGUAGE ForeignFunctionInterface, TypeSynonymInstances, FlexibleInstances, DoAndIfThenElse, UndecidableInstances, IncoherentInstances #-}
 
 module Foreign.HCLR.Binding.Mono (
   module Foreign.HCLR.Binding.Mono
@@ -57,13 +57,14 @@ foreign import ccall mono_gchandle_new  :: MonoObjectPtr -> GBool -> IO MonoHand
 foreign import ccall mono_gchandle_get_target :: MonoHandle -> IO MonoObjectPtr
 foreign import ccall mono_gchandle_free :: MonoHandle -> IO ()
 foreign import ccall mono_get_int16_class :: IO MonoClassPtr
-foreign import ccall mono_value_box :: MonoDomainPtr -> MonoClassPtr -> Ptr Int16 -> IO MonoObjectPtr
+foreign import ccall mono_value_box :: MonoDomainPtr -> MonoClassPtr -> Ptr Int -> IO MonoObjectPtr
+foreign import ccall mono_object_unbox :: MonoObjectPtr -> IO (Ptr Int)
 foreign import ccall mono_assembly_get_image :: MonoAssemblyPtr -> IO MonoImagePtr
 foreign import ccall mono_assembly_name_new :: CString -> IO MonoAssemblyNamePtr
 foreign import ccall mono_assembly_load :: MonoAssemblyNamePtr -> CString -> MonoImageOpenStatusPtr -> IO MonoAssemblyPtr
 foreign import ccall mono_class_from_name :: MonoImagePtr -> CString -> CString -> IO MonoClassPtr
 foreign import ccall mono_object_new :: MonoDomainPtr -> MonoClassPtr -> IO MonoObjectPtr
-foreign import ccall mono_config_parse :: Ptr () -> IO ()
+foreign import ccall mono_config_parse :: CString -> IO ()
 foreign import ccall mono_runtime_object_init :: MonoObjectPtr -> IO ()
 foreign import ccall mono_image_get_name :: MonoImagePtr -> IO CString
 foreign import ccall mono_class_num_methods :: MonoClassPtr -> IO CInt
@@ -105,6 +106,15 @@ withObject (Object fp) f = withForeignPtr fp $ \p-> do
   f x
 
 data Object = NullObject | Object {oid :: ForeignPtr MonoHandle}
+
+objectFromPtr :: MonoObjectPtr -> IO Object
+objectFromPtr oP = do
+    handle <- mono_gchandle_new oP gboolTrue
+    fp <- mallocForeignPtr
+    withForeignPtr fp (\p-> poke p handle)
+    FC.addForeignPtrFinalizer fp (mono_gchandle_free handle)
+    return (Object fp)
+
   
 
 objectGetHandle :: Object -> IO MonoHandle
@@ -118,11 +128,9 @@ objectGetTarget obj = case obj of
 class Box a where
   box :: a -> IO Object
   unBox :: Object -> IO a
+
+class Marshal a where
   arg :: a -> (Ptr MonoObjectPtr -> IO b) -> IO b
-  arg x f = do
-      obj <- box x
-      t <- objectGetTarget obj
-      withArray [t] f
 
 
 instance Box T.Text where
@@ -139,14 +147,123 @@ instance Box T.Text where
     s <- getString x
     fromPtr s (fromIntegral len)
 
+instance Box String where
+  box x = box $ T.pack x
+  unBox ob = unBox ob >>= \x-> return $ T.unpack x
+
+instance (Box a) => Marshal a where
+  arg x f = do
+      obj <- box x
+      t <- objectGetTarget obj
+      withArray [t] f
+
 instance Box () where
   box () = return NullObject
   unBox obj = return ()
+
+instance Marshal () where
   arg () f = withArray [] f
 
 instance Box Object where
   box x = return x
   unBox x = return x
+
+instance (Box a, Box b) => Marshal (a, b) where
+  arg (x,y) f = do
+    x' <- box x >>= objectGetTarget
+    y' <- box y >>= objectGetTarget
+    withArray [x', y'] f
+
+instance (Box a, Box b, Box c) => Marshal (a, b, c) where
+  arg (x, y, z) f = do
+    x' <- box x >>= objectGetTarget
+    y' <- box y >>= objectGetTarget
+    z' <- box z >>= objectGetTarget
+    withArray [x', y', z'] f
+
+instance (Box a, Box b, Box c, Box d) => Marshal (a, b, c, d) where
+  arg (a1, a2, a3, a4) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    withArray [a1', a2', a3', a4'] f
+
+instance (Box a, Box b, Box c, Box d, Box e) => Marshal (a, b, c, d, e) where
+  arg (a1, a2, a3, a4, a5) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5'] f
+
+instance (Box a, Box b, Box c, Box d, Box e, Box f) => Marshal (a, b, c, d, e, f) where
+  arg (a1, a2, a3, a4, a5, a6) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    a6' <- box a6 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5', a6'] f
+
+instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g) => Marshal (a, b, c, d, e, f, g) where
+  arg (a1, a2, a3, a4, a5, a6, a7) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    a6' <- box a6 >>= objectGetTarget
+    a7' <- box a7 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5', a6', a7'] f
+
+instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g, Box h) => Marshal (a, b, c, d, e, f, g, h) where
+  arg (a1, a2, a3, a4, a5, a6, a7, a8) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    a6' <- box a6 >>= objectGetTarget
+    a7' <- box a7 >>= objectGetTarget
+    a8' <- box a7 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5', a6', a7', a8'] f
+
+instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g, Box h, Box i) => Marshal (a, b, c, d, e, f, g, h, i) where
+  arg (a1, a2, a3, a4, a5, a6, a7, a8, a9) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    a6' <- box a6 >>= objectGetTarget
+    a7' <- box a7 >>= objectGetTarget
+    a8' <- box a7 >>= objectGetTarget
+    a9' <- box a9 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5', a6', a7', a8', a9'] f
+
+instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g, Box h, Box i, Box j) => Marshal (a, b, c, d, e, f, g, h, i, j) where
+  arg (a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) f = do
+    a1' <- box a1 >>= objectGetTarget
+    a2' <- box a2 >>= objectGetTarget
+    a3' <- box a3 >>= objectGetTarget
+    a4' <- box a4 >>= objectGetTarget
+    a5' <- box a5 >>= objectGetTarget
+    a6' <- box a6 >>= objectGetTarget
+    a7' <- box a7 >>= objectGetTarget
+    a8' <- box a7 >>= objectGetTarget
+    a9' <- box a9 >>= objectGetTarget
+    a10' <- box a10 >>= objectGetTarget
+    withArray [a1', a2', a3', a4', a5', a6', a7', a8', a9', a10'] f
+
+
+
+
+
+
+
  
 assemblyImage :: String -> IO MonoImagePtr
 assemblyImage s = do
@@ -158,7 +275,7 @@ assemblyImage s = do
     mono_assembly_get_image assem
 
 
-invokeMethod :: Box a => Assembly -> String -> String -> Object -> a -> IO Object
+invokeMethod :: Marshal a => Assembly -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
 invokeMethod (Assembly assem) t mth target args = do
   let funName = (t ++ ":" ++ mth)
   image <- assemblyImage assem
@@ -216,7 +333,7 @@ splitOn x xs =
    (ys,[])   -> [ys]
    (ys,_:zs) -> ys:splitOn x zs
 
-objectNew :: Box a => Assembly -> String -> a -> IO Object
+objectNew :: Marshal a => Assembly -> String -> a -> IO Object
 objectNew (Assembly assem) t args = do
   let typ = splitOn '.' t
   cls <- monoFindClass assem typ

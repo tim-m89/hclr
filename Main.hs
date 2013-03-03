@@ -14,10 +14,15 @@ nullObject = box ("S"::Text)
 
 main :: IO ()
 main = withRuntime $ do
-  invokeMethod corlib "System.Console" "WriteLine" NullObject ("Hello World" ::Text)
-  invokeMethod formslib "System.Windows.Forms.Application" "EnableVisualStyles" NullObject ()
+  putStrLn "a"
+  invokeMethod corlib "System.Console" "WriteLine(string)" NullObject ("Hello World" ::Text)
+  putStrLn "b"
+  invokeMethod formslib "System.Windows.Forms.Application" "EnableVisualStyles()" NullObject ()
+  putStrLn "c"
   f <- objectNew formslib "System.Windows.Forms.Form" ()
-  invokeMethod formslib "System.Windows.Forms.Application" "Run" NullObject f
+  putStrLn "d"
+  invokeMethod formslib "System.Windows.Forms.Application" "Run(System.Windows.Forms.Form)" NullObject f
+  putStrLn "e"
   return ()
 
 
