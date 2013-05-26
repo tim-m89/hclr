@@ -4,6 +4,7 @@ module Foreign.HCLR.Binding.Mono (
   module Foreign.HCLR.Binding.Mono
 ) where
 
+import Control.Monad (replicateM, zipWithM)
 import Control.Exception
 import Data.List
 import Foreign
@@ -41,6 +42,10 @@ data MonoImageOpenStatus = MonoImageOpenStatus
 type MonoImageOpenStatusPtr = Ptr MonoImageOpenStatus
 data MonoMethodSignature = MonoMethodSignature
 type MonoMethodSignaturePtr = Ptr MonoMethodSignature
+data MonoType = MonoType
+type MonoTypePtr = Ptr MonoType
+data MonoProperty = MonoProperty
+type MonoProperyPtr = Ptr MonoProperty
 
 foreign import ccall mono_jit_init :: CString -> IO MonoDomainPtr
 foreign import ccall mono_jit_cleanup :: MonoDomainPtr -> IO ()
@@ -67,10 +72,17 @@ foreign import ccall mono_object_new :: MonoDomainPtr -> MonoClassPtr -> IO Mono
 foreign import ccall mono_config_parse :: CString -> IO ()
 foreign import ccall mono_runtime_object_init :: MonoObjectPtr -> IO ()
 foreign import ccall mono_image_get_name :: MonoImagePtr -> IO CString
-foreign import ccall mono_class_num_methods :: MonoClassPtr -> IO CInt
-foreign import ccall mono_class_get_methods :: MonoClassPtr -> Ptr CIntPtr -> IO MonoMethodPtr
+foreign import ccall mono_class_num_methods :: MonoClassPtr -> IO Int
+foreign import ccall mono_class_get_methods :: MonoClassPtr -> Ptr (Ptr Int) -> IO MonoMethodPtr
+foreign import ccall mono_signature_get_param_count :: MonoMethodSignaturePtr -> IO Int
+foreign import ccall mono_signature_get_params :: MonoMethodSignaturePtr -> Ptr (Ptr Int) -> IO MonoTypePtr
 foreign import ccall mono_method_get_name :: MonoMethodPtr -> IO CString
 foreign import ccall mono_method_signature :: MonoMethodPtr -> IO MonoMethodSignaturePtr
+foreign import ccall mono_class_get_name :: MonoClassPtr -> IO CString
+foreign import ccall mono_class_get_parent :: MonoClassPtr -> IO MonoClassPtr
+foreign import ccall mono_class_from_mono_type :: MonoTypePtr -> IO MonoClassPtr
+foreign import ccall mono_class_get_property_from_name :: MonoClassPtr -> CString -> IO MonoPropertyPtr
+foreign import ccall mono_object_get_class :: MonoObjectPtr -> IO MonoClassPtr
 
 foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
@@ -341,3 +353,37 @@ objectNew (Assembly assem) t args = do
   invokeMethod (Assembly assem) t ".ctor()" o args
   return o
 
+monoClassName :: MonoClassPtr -> IO String
+monoClassName x = mono_class_get_name x >>= peekCString
+
+
+monoClassAllSuper :: MonoClassPtr -> IO [MonoClassPtr]
+monoClassAllSuper c = monoClassAllSuper' [c]
+  where
+    monoClassAllSuper' :: [MonoClassPtr] -> IO [MonoClassPtr]
+    monoClassAllSuper' (x:xs) = do
+      s <- monoClassName x
+      if s=="Object" then
+        return (x:xs)
+      else mono_class_get_parent x >>= \parent-> monoClassAllSuper' (parent:x:xs)
+
+--is t1 equal to or a subtype of t2
+isType :: MonoClassPtr -> MonoClassPtr -> IO Bool 
+isType t1 t2 = do
+  c <- monoClassAllSuper t1
+  return $ t2 `elem` c
+
+isSigCompat :: [MonoClassPtr] -> [MonoClassPtr] -> IO Bool
+isSigCompat t1 t2 = zipWithM isType t2 t2 >>= \l-> return $ foldl1 (&&) l
+
+monoClassGetMethods :: MonoClassPtr -> IO [MonoMethodPtr]
+monoClassGetMethods cls = with (nullPtr::Ptr Int) $ \iter-> do
+  i <- mono_class_num_methods cls
+  replicateM i $ mono_class_get_methods cls iter 
+
+monoMethodGetParamClasses :: MonoMethodPtr -> IO [MonoClassPtr]
+monoMethodGetParamClasses meth = with (nullPtr :: Ptr Int) $ \iter-> do
+  sig <- mono_method_signature meth
+  i <- mono_signature_get_param_count sig
+  replicateM i $ mono_signature_get_params sig iter >>= mono_class_from_mono_type
+  
