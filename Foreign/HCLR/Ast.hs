@@ -17,7 +17,7 @@ instance Show CLRType where
   show (CLRType s) = concat $ intersperse "." s
 newtype CLRMethod = CLRMethod String
 instance Show CLRMethod where
-  show (CLRMethod s) = "." ++ s
+  show (CLRMethod s) = s
 newtype Args = Args [Arg]
 instance Show Args where
   show (Args x) = " Args: " ++ (concatMap show x)
