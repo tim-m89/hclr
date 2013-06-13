@@ -45,7 +45,7 @@ type MonoMethodSignaturePtr = Ptr MonoMethodSignature
 data MonoType = MonoType
 type MonoTypePtr = Ptr MonoType
 data MonoProperty = MonoProperty
-type MonoProperyPtr = Ptr MonoProperty
+type MonoPropertyPtr = Ptr MonoProperty
 
 foreign import ccall mono_jit_init :: CString -> IO MonoDomainPtr
 foreign import ccall mono_jit_cleanup :: MonoDomainPtr -> IO ()
@@ -83,18 +83,41 @@ foreign import ccall mono_class_get_parent :: MonoClassPtr -> IO MonoClassPtr
 foreign import ccall mono_class_from_mono_type :: MonoTypePtr -> IO MonoClassPtr
 foreign import ccall mono_class_get_property_from_name :: MonoClassPtr -> CString -> IO MonoPropertyPtr
 foreign import ccall mono_object_get_class :: MonoObjectPtr -> IO MonoClassPtr
+foreign import ccall mono_domain_create_appdomain :: CString -> CString -> IO MonoDomainPtr
+foreign import ccall mono_domain_set :: MonoDomainPtr -> GBool -> IO GBool
+foreign import ccall mono_get_root_domain :: IO MonoDomainPtr
+foreign import ccall mono_runtime_init :: MonoDomainPtr -> Ptr () -> Ptr () -> IO ()
+foreign import ccall mono_set_dirs :: Ptr () -> Ptr () -> IO ()
+foreign import ccall mono_register_config_for_assembly :: CString -> CString -> IO ()
 
 foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
 foreign import ccall "marshal.c stringLength" stringLength :: MonoHandle -> IO Int32
+
 
 monoLoadAssembly :: String -> IO MonoAssemblyPtr
 monoLoadAssembly s = withCString s (\c-> mono_assembly_name_new c >>= \n-> mono_assembly_load n nullPtr nullPtr)
 
 monoInit :: IO MonoDomainPtr
 monoInit = do
+  prog <- getProgName
+  dom <- withCString (prog) mono_jit_init
+  withCString (prog++".config") $ \cfg-> withCString prog $ \cprog-> mono_register_config_for_assembly cprog cfg
   mono_config_parse nullPtr
-  getProgName >>= flip withCString mono_jit_init
+  --putStrLn $ show dom
+  --rootDom <- mono_get_root_domain
+  --putStrLn $ show rootDom
+  si <- currentAppDomain >>= appDomainGetSetupInfo 
+  --appDomSetupSetBase si "./"
+  --appDomSetupGetBase si >>= putStrLn
+  --withCString (prog++".config") $ \cfg-> mono_config_parse cfg
+  --mono_set_dirs nullPtr nullPtr
+  --mono_runtime_init dom nullPtr nullPtr
+  --d2 <- withCString prog $ \progC-> withCString (prog++".config") $ \progCfgC-> mono_domain_create_appdomain progC progCfgC
+  --mono_domain_set d2 0
+  --appDomSetupSetConfig si (prog ++ ".config") 
+  --appDomSetupGetConfig si >>= putStrLn
+  return dom
 
 
 withRuntime :: IO b -> IO b
@@ -269,13 +292,6 @@ instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g, Box h, Box i, Box j) 
     a9' <- box a9 >>= objectGetTarget
     a10' <- box a10 >>= objectGetTarget
     withArray [a1', a2', a3', a4', a5', a6', a7', a8', a9', a10'] f
-
-
-
-
-
-
-
  
 assemblyImage :: String -> IO MonoImagePtr
 assemblyImage s = do
@@ -308,10 +324,55 @@ invokeMethod (Assembly assem) t mth target args = do
         FC.addForeignPtrFinalizer fp (mono_gchandle_free ret)
         return $ Object fp
 
+invokeMethodImage :: Marshal a => MonoImagePtr -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
+invokeMethodImage image t mth target args = do
+  let funName = (t ++ ":" ++ mth)
+  desc <- withCString funName (\c-> mono_method_desc_new c gboolTrue)
+  method <- mono_method_desc_search_in_image desc image
+  mono_method_desc_free desc
+  if (method == nullPtr) then
+    error ("Cannot find method: " ++ funName)
+  else do
+    arg args $ \argP-> do
+      targetP <- objectGetTarget target
+      ret <- mono_runtime_invoke method targetP argP nullPtr >>= flip mono_gchandle_new gboolTrue
+      fp <- mallocForeignPtr
+      withForeignPtr fp (\p-> poke p ret)
+      FC.addForeignPtrFinalizer fp (mono_gchandle_free ret)
+      return $ Object fp
+
+invokeMethodCorlib :: Marshal a => String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
+invokeMethodCorlib t mth target args = do
+  corlib <- mono_get_corlib
+  invokeMethodImage corlib t mth target args
+
+
 
 monoGetClass :: String -> String -> String -> IO MonoClassPtr
 monoGetClass assem ns n = assemblyImage assem >>= \image-> withCString ns (\nsC-> withCString n (\nC-> mono_class_from_name image nsC nC) ) 
 
+monoImageGetClass :: MonoImagePtr -> String -> String -> IO MonoClassPtr
+monoImageGetClass image ns n = withCString ns (\nsC-> withCString n (\nC-> mono_class_from_name image nsC nC) ) 
+
+getAppDomainClass = mono_get_corlib >>= \corlib-> monoImageGetClass corlib "System" "AppDomain"
+
+currentAppDomain = invokeMethodCorlib "System.AppDomain" "get_CurrentDomain()" NullObject ()
+
+appDomainGetSetupInfo appDom = invokeMethodCorlib "System.AppDomain" "get_SetupInformation()" appDom ()
+
+
+appDomSetupSetConfig :: Object -> String -> IO Object
+appDomSetupSetConfig appDomSetup configFile = invokeMethodCorlib "System.AppDomainSetup" "set_ConfigurationFile" appDomSetup configFile
+
+appDomSetupGetConfig :: Object -> IO String
+appDomSetupGetConfig appDomSetup = invokeMethodCorlib "System.AppDomainSetup" "get_ConfigurationFile" appDomSetup () >>= unBox
+
+appDomSetupSetBase :: Object -> String -> IO Object
+appDomSetupSetBase appDomSetup base = invokeMethodCorlib "System.AppDomainSetup" "set_ApplicationBase" appDomSetup base
+
+appDomSetupGetBase :: Object -> IO String 
+appDomSetupGetBase appDomSetup  = invokeMethodCorlib "System.AppDomainSetup" "get_ApplicationBase" appDomSetup () >>= unBox
+  
 monoObjectNew :: MonoClassPtr -> IO Object
 monoObjectNew cls = do
   domain <- mono_domain_get
