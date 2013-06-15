@@ -163,11 +163,9 @@ objectGetTarget obj = case obj of
 class Box a where
   box :: a -> IO Object
   unBox :: Object -> IO a
-  name :: a -> String
 
 class Marshal a where
   arg :: a -> (Ptr MonoObjectPtr -> IO b) -> IO b
-  argName :: a -> String
 
 
 instance Box T.Text where
@@ -183,42 +181,34 @@ instance Box T.Text where
     len <- stringLength x
     s <- getString x
     fromPtr s (fromIntegral len)
-  name _ = "string"
 
 instance Box [Char] where
   box x = box $ T.pack x
   unBox ob = unBox ob >>= \x-> return $ T.unpack x
-  name _ = "string"
 
 instance (Box a) => Marshal a where
   arg x f = do
       obj <- box x
       t <- objectGetTarget obj
       withArray [t] f
-  argName x = "(" ++ name x ++ ")"
 
 instance Box () where
   box () = return NullObject
   unBox obj = return ()
-  name _ = "()"
 
 instance Marshal () where
   arg () f = withArray [] f
-  argName _ = "()"
 
 instance Box Object where
   box x = return x
   unBox x = return x
-  name _ = "Object"
 
 instance (Box a, Box b) => Marshal (a, b) where
   arg (x,y) f = do
     x' <- box x >>= objectGetTarget
     y' <- box y >>= objectGetTarget
     withArray [x', y'] f
-  argName (x,y) = "(" ++ (name x) ++ ", " ++ (name y) ++ ")"
 
-{-
 instance (Box a, Box b, Box c) => Marshal (a, b, c) where
   arg (x, y, z) f = do
     x' <- box x >>= objectGetTarget
@@ -303,7 +293,6 @@ instance (Box a, Box b, Box c, Box d, Box e, Box f, Box g, Box h, Box i, Box j) 
     a10' <- box a10 >>= objectGetTarget
     withArray [a1', a2', a3', a4', a5', a6', a7', a8', a9', a10'] f
 
--}
  
 assemblyImage :: String -> IO MonoImagePtr
 assemblyImage s = do
@@ -338,7 +327,7 @@ invokeMethod (Assembly assem) t mth target args = do
 
 invokeMethodImage :: (Box a, Marshal a) => MonoImagePtr -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
 invokeMethodImage image t mth target args = do
-  let funName = (t ++ ":" ++ mth ++ (argName args))
+  let funName = (t ++ ":" ++ mth )
   desc <- withCString funName (\c-> mono_method_desc_new c gboolTrue)
   method <- mono_method_desc_search_in_image desc image
   mono_method_desc_free desc

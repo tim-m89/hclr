@@ -3,6 +3,7 @@ module Foreign.HCLR.CodeGen where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
+import Data.List (concat, intersperse)
 import Foreign.HCLR.Ast
 import qualified Language.Haskell.TH.Syntax as TH
 import qualified Data.Map as Map
@@ -13,7 +14,7 @@ typeAssem :: CLRType -> IO Assembly
 typeAssem = undefined
 
 type TypeAssemMap = Map.Map CLRType Assembly
-type CompileState = StateT TypeAssemMap IO
+type Compiler = StateT TypeAssemMap IO
 
 getTypeAssemMap :: [CLRType] -> IO TypeAssemMap
 getTypeAssemMap types = do
@@ -34,32 +35,43 @@ compile x = withRuntime $ do
 
 
 
-doStmt :: Stmt -> CompileState TH.Stmt
+doStmt :: Stmt -> Compiler TH.Stmt
 doStmt s = case s of
   BindStmt (Symbol name) exp -> return $ TH.NoBindS $ (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE [])
   NoBindStmt exp -> doExp exp >>= \e-> return $ TH.NoBindS e
 
 
 
-doExp :: Exp -> CompileState TH.Exp
+doExp :: Exp -> Compiler TH.Exp
 doExp e =  case e of
   New typ args -> undefined
   Invoke typ mth (Args args) -> do
     liftIO $ putStrLn $ show typ
     liftIO $ putStrLn $ show mth
     args' <- doArgs args
-    return $ (TH.VarE (TH.mkName "invokeMethodCorlib") ) `TH.AppE` (quoteVar typ) `TH.AppE` (quoteVar mth) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args'
+    argTypes <- doArgTypes args
+    return $ (TH.VarE (TH.mkName "invokeMethodCorlib") ) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args'
 
-doArg :: Arg -> CompileState TH.Exp
+doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of
   ArgStringLit (StringLiteral s) -> return (TH.LitE $ TH.StringL s)
   ArgSym _ -> undefined
 
-doArgs :: [Arg] -> CompileState TH.Exp
+doArgType :: Arg -> Compiler String
+doArgType a = case a of
+  ArgStringLit (StringLiteral s) -> return "string"
+  ArgSym _ -> undefined  
+
+doArgs :: [Arg] -> Compiler TH.Exp
 doArgs a = mapM (doArg) a >>= \l-> return $ TH.TupE l
+
+doArgTypes :: [Arg] -> Compiler String
+doArgTypes a = mapM (doArgType) a >>= \l-> return $ "(" ++ (concat (intersperse "," l)) ++ ")"
 
 quoteVar :: (Show a) => a -> TH.Exp
 quoteVar x = TH.LitE $ TH.StringL $ show x
+
+doMethodName mth args = TH.LitE $ TH.StringL $ (show mth) ++ args
 
 {-
 stmtr :: TypeAssemMap -> Stmt -> IO TH.Stmt
