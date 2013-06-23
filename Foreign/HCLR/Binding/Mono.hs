@@ -89,6 +89,7 @@ foreign import ccall mono_get_root_domain :: IO MonoDomainPtr
 foreign import ccall mono_runtime_init :: MonoDomainPtr -> Ptr () -> Ptr () -> IO ()
 foreign import ccall mono_set_dirs :: Ptr () -> Ptr () -> IO ()
 foreign import ccall mono_register_config_for_assembly :: CString -> CString -> IO ()
+foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr -> IO MonoTypePtr
 
 foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
@@ -448,4 +449,15 @@ monoMethodGetParamClasses meth = with (nullPtr :: Ptr Int) $ \iter-> do
   sig <- mono_method_signature meth
   i <- mono_signature_get_param_count sig
   replicateM i $ mono_signature_get_params sig iter >>= mono_class_from_mono_type
+
+monoMethodGetReturnClass :: MonoMethodPtr -> IO MonoClassPtr
+monoMethodGetReturnClass meth = do
+  sig <- mono_method_signature meth
+  ret <- mono_signature_get_return_type sig
+  mono_class_from_mono_type ret
+
+
+    
+    
   
+
