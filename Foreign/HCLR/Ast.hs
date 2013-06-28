@@ -42,6 +42,8 @@ expGetType e = case e of
   Invoke t m a -> t
 
 newtype Assembly = Assembly String
+instance Show Assembly where
+  show (Assembly a) = a
 
 
 instance Eq CLRType where

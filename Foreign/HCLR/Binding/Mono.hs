@@ -131,9 +131,6 @@ assemHasType (Assembly a) (CLRType t) = do
   assem <- monoLoadAssembly a
   image <- mono_assembly_get_image assem
   cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
-  print a
-  print ns
-  print typ
   return (cls /= nullPtr)
 
 withObject :: Object -> (Word32 -> IO a) -> IO a
@@ -305,28 +302,15 @@ assemblyImage s = do
     mono_assembly_get_image assem
 
 
-invokeMethod :: Marshal a => Assembly -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
-invokeMethod (Assembly assem) t mth target args = do
-  let funName = (t ++ ":" ++ mth)
+invokeMethod :: Marshal a => String -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
+invokeMethod assem t mth target args = do
   image <- assemblyImage assem
-  if image == nullPtr then
-    putStrLn "image null" >> return NullObject
-  else do
-    desc <- withCString funName (\c-> mono_method_desc_new c gboolTrue)
-    method <- mono_method_desc_search_in_image desc image
-    mono_method_desc_free desc
-    if (method == nullPtr) then
-      error ("Cannot find method: " ++ funName)
-    else do
-      arg args $ \argP-> do
-        targetP <- objectGetTarget target
-        ret <- mono_runtime_invoke method targetP argP nullPtr >>= flip mono_gchandle_new gboolTrue
-        fp <- mallocForeignPtr
-        withForeignPtr fp (\p-> poke p ret)
-        FC.addForeignPtrFinalizer fp (mono_gchandle_free ret)
-        return $ Object fp
+  if (image == nullPtr) then
+    error ("Image")
+  else
+    invokeMethodImage image t mth target args
 
-invokeMethodImage :: (Box a, Marshal a) => MonoImagePtr -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
+invokeMethodImage :: Marshal a => MonoImagePtr -> String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
 invokeMethodImage image t mth target args = do
   let funName = (t ++ ":" ++ mth )
   desc <- withCString funName (\c-> mono_method_desc_new c gboolTrue)
@@ -343,7 +327,7 @@ invokeMethodImage image t mth target args = do
       FC.addForeignPtrFinalizer fp (mono_gchandle_free ret)
       return $ Object fp
 
-invokeMethodCorlib :: (Box a, Marshal a) => String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
+invokeMethodCorlib :: Marshal a => String -> String -> Object -> a -> IO Object  --method name is parsed with argument types eg WriteLine(String)
 invokeMethodCorlib t mth target args = do
   corlib <- mono_get_corlib
   invokeMethodImage corlib t mth target args
@@ -413,7 +397,7 @@ objectNew (Assembly assem) t args = do
   let typ = splitOn '.' t
   cls <- monoFindClass assem typ
   o <- monoObjectNew cls
-  invokeMethod (Assembly assem) t ".ctor()" o args
+  invokeMethod assem t ".ctor()" o args
   return o
 
 monoClassName :: MonoClassPtr -> IO String
