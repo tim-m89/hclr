@@ -103,23 +103,8 @@ monoInit :: IO MonoDomainPtr
 monoInit = do
   prog <- getProgName
   dom <- withCString (prog) mono_jit_init
-  withCString (prog++".config") $ \cfg-> withCString prog $ \cprog-> mono_register_config_for_assembly cprog cfg
   mono_config_parse nullPtr
-  --putStrLn $ show dom
-  --rootDom <- mono_get_root_domain
-  --putStrLn $ show rootDom
-  si <- currentAppDomain >>= appDomainGetSetupInfo 
-  --appDomSetupSetBase si "./"
-  --appDomSetupGetBase si >>= putStrLn
-  --withCString (prog++".config") $ \cfg-> mono_config_parse cfg
-  --mono_set_dirs nullPtr nullPtr
-  --mono_runtime_init dom nullPtr nullPtr
-  --d2 <- withCString prog $ \progC-> withCString (prog++".config") $ \progCfgC-> mono_domain_create_appdomain progC progCfgC
-  --mono_domain_set d2 0
-  --appDomSetupSetConfig si (prog ++ ".config") 
-  --appDomSetupGetConfig si >>= putStrLn
   return dom
-
 
 withRuntime :: IO b -> IO b
 withRuntime x = bracket monoInit mono_jit_cleanup (\z-> x)

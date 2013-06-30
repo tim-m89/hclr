@@ -12,7 +12,7 @@ import Foreign.HCLR.Ast
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH.Ppr (pprint)
 import qualified Data.Map as Map
-import Data.String.HT
+import Data.String.HT (trim)
 import Foreign.HCLR.Binding
 
 
