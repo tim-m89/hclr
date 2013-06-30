@@ -52,3 +52,9 @@ instance Eq CLRType where
 instance Ord CLRType where
   compare (CLRType a) (CLRType b) = compare a b
 
+instance Eq Symbol where
+  (Symbol a) == (Symbol b) = a == b 
+
+instance Ord Symbol where
+  compare (Symbol a) (Symbol b) = compare a b
+

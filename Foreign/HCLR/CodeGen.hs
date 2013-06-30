@@ -17,7 +17,7 @@ import Foreign.HCLR.Binding
 
 
 type TypeAssemMap = Map.Map CLRType Assembly
-type SymbolTypeMap = Map.Map String CLRType
+type SymbolTypeMap = Map.Map Symbol CLRType
 data CompilerInfo = CompilerInfo { typeAssemMap :: TypeAssemMap
                                  , symbolTypeMap :: SymbolTypeMap
                                  , assemRefs :: [Assembly]
@@ -32,12 +32,9 @@ initialCompileState a ta = CompilerInfo { typeAssemMap = Map.fromList ta
                                         }
 
 
-gta :: Compiler TypeAssemMap
-gta = get >>= return . typeAssemMap
-
 typeAssem :: CLRType -> Compiler Assembly
 typeAssem typ = do
-  tam <- gta
+  tam <- get >>= return . typeAssemMap
   return $ fromJust $ Map.lookup typ tam
 
 referencedAssems :: IO [Assembly]
@@ -100,9 +97,9 @@ doArg a = case a of
 doArgType :: Arg -> Compiler (Either String String)
 doArgType a = case a of
   ArgStringLit (StringLiteral s) -> return $ Right "string"
-  ArgSym (Symbol s) -> do
+  ArgSym sym@(Symbol s) -> do
     symTypes <- get >>= return . symbolTypeMap 
-    return $ maybe (Left $ "Unknown symbol " ++ s) (Right . show) $ Map.lookup s symTypes
+    return $ maybe (Left $ "Unknown symbol " ++ s) (Right . show) $ Map.lookup sym symTypes
 
 doArgs :: [Arg] -> Compiler TH.Exp
 doArgs a = mapM (doArg) a >>= \l-> return $ TH.TupE l
