@@ -15,8 +15,7 @@ import Data.String.HT (trim)
 import Foreign.HCLR.Binding
 
 
-type TypeAssemMap = Map.Map CLRType Assembly
-type SymbolTypeMap = Map.Map Symbol CLRType
+
 data CompilerInfo = CompilerInfo { typeAssemMap :: TypeAssemMap
                                  , symbolTypeMap :: SymbolTypeMap
                                  , assemRefs :: [Assembly]

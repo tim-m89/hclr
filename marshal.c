@@ -7,9 +7,9 @@ extern "C" {
 #include <stdint.h>
 #include <mono/metadata/appdomain.h>
 
-uint32_t boxString(uint32_t ptr, int32_t length)
+uint32_t boxString(mono_unichar2 *ptr, int32_t length)
 {
-  return mono_gchandle_new(mono_string_new_utf16(mono_domain_get(), (mono_unichar2 *)ptr, length), 0);
+  return mono_gchandle_new((MonoObject*)mono_string_new_utf16(mono_domain_get(), ptr, length), 0);
 }
 
 uint16_t * getString(uint32_t a)
@@ -20,6 +20,15 @@ uint16_t * getString(uint32_t a)
 int32_t stringLength(uint32_t a)
 {
   return mono_string_length((MonoString *)mono_gchandle_get_target(a));
+}
+
+void setupDomain(MonoDomain *domain, char *baseDir, char *configFile) //workaround for an issue that was introduced since Mono 3.0 but yet unresolved
+{
+  void **appDomSetup;
+
+  appDomSetup = ((void***)domain)[4];
+  appDomSetup[2] = (void*)mono_string_new(domain, baseDir); 
+  appDomSetup[5] = (void*)mono_string_new(domain, configFile); 
 }
 
 #else

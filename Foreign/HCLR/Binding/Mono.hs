@@ -4,6 +4,7 @@ module Foreign.HCLR.Binding.Mono (
   module Foreign.HCLR.Binding.Mono
 ) where
 
+import Foreign.HCLR.Binding.Common
 import Control.Monad (replicateM, zipWithM)
 import Control.Exception
 import Data.List
@@ -426,6 +427,12 @@ monoMethodGetReturnClass meth = do
   mono_class_from_mono_type ret
 
 
+expGetReturnType :: Exp -> Assembly -> IO CLRType
+expGetReturnType e a = case e of
+  New t a -> return t
+  Invoke t m a -> do
+    return undefined
+    
     
     
   

@@ -1,6 +1,7 @@
 module Foreign.HCLR.Ast where
 
 import Data.List
+import qualified Data.Map as Map
 
 newtype StringLiteral = StringLiteral String
 instance Show StringLiteral where
@@ -58,3 +59,6 @@ instance Eq Symbol where
 instance Ord Symbol where
   compare (Symbol a) (Symbol b) = compare a b
 
+
+type TypeAssemMap = Map.Map CLRType Assembly
+type SymbolTypeMap = Map.Map Symbol CLRType
