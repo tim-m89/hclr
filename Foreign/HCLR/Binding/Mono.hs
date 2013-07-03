@@ -92,9 +92,10 @@ foreign import ccall mono_set_dirs :: Ptr () -> Ptr () -> IO ()
 foreign import ccall mono_register_config_for_assembly :: CString -> CString -> IO ()
 foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr -> IO MonoTypePtr
 
-foreign import ccall "marshal.c boxString" boxString :: Word32 -> Int32 -> IO MonoHandle
+foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
 foreign import ccall "marshal.c stringLength" stringLength :: MonoHandle -> IO Int32
+foreign import ccall "marshal.c setupDomain" setupDomain :: MonoDomainPtr -> CString -> CString -> IO () 
 
 
 monoLoadAssembly :: String -> IO MonoAssemblyPtr
@@ -105,7 +106,10 @@ monoInit = do
   prog <- getProgName
   dom <- withCString (prog) mono_jit_init
   mono_config_parse nullPtr
-  return dom
+  withCString "./" $ \baseDir->
+    withCString "hclr.config" $ \configFile-> do
+      setupDomain dom baseDir configFile
+      return dom
 
 withRuntime :: IO b -> IO b
 withRuntime x = bracket monoInit mono_jit_cleanup (\z-> x)
