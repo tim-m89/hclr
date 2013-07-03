@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 
 module Foreign.HCLR.CodeGen where
 
