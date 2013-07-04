@@ -375,6 +375,9 @@ monoFindClass assem typ = do
     Just x -> return x
     Nothing -> return nullPtr
 
+assemblyGetClass :: Assembly -> CLRType -> IO MonoClassPtr
+assemblyGetClass (Assembly a) (CLRType t) = monoFindClass a t
+
 splitOn :: Eq a => a -> [a] -> [[a]]
 splitOn _ [] = []
 splitOn x xs = 
@@ -410,8 +413,10 @@ isType t1 t2 = do
   c <- monoClassAllSuper t1
   return $ t2 `elem` c
 
-isSigCompat :: [MonoClassPtr] -> [MonoClassPtr] -> IO Bool
-isSigCompat t1 t2 = zipWithM isType t2 t2 >>= \l-> return $ foldl1 (&&) l
+type Sig = [MonoClassPtr]
+
+isSigCompat :: Sig -> Sig -> IO Bool
+isSigCompat sig1 sig2 = zipWithM isType sig1 sig2 >>= \l-> return $ foldl1 (&&) l
 
 monoClassGetMethods :: MonoClassPtr -> IO [MonoMethodPtr]
 monoClassGetMethods cls = with (nullPtr::Ptr Int) $ \iter-> do
@@ -431,10 +436,11 @@ monoMethodGetReturnClass meth = do
   mono_class_from_mono_type ret
 
 
-expGetReturnType :: Exp -> Assembly -> IO CLRType
-expGetReturnType e a = case e of
+expGetReturnType :: Exp -> SymbolTypeMap -> Assembly -> IO CLRType
+expGetReturnType e stm assem = case e of
   New t a -> return t
   Invoke t m a -> do
+    cls <- assemblyGetClass assem t
     return undefined
     
     
