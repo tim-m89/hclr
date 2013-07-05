@@ -375,6 +375,16 @@ monoFindClass assem typ = do
     Just x -> return x
     Nothing -> return nullPtr
 
+monoFindClass' :: MonoImagePtr -> Ast.CLRType -> IO MonoClassPtr
+monoFindClass' image (Ast.CLRType typ) = do
+  ptrs <- mapM (uncurry (monoImageGetClass image)) $ nsPermute typ
+  found <- return $ find (/= nullPtr) ptrs
+  case found of
+    Just x -> return x
+    Nothing -> return nullPtr
+
+
+
 assemblyGetClass :: Ast.Assembly -> Ast.CLRType -> IO MonoClassPtr
 assemblyGetClass (Ast.Assembly a) (Ast.CLRType t) = monoFindClass a t
 
@@ -439,9 +449,10 @@ monoMethodGetReturnClass meth = do
 type RuntimeType = MonoClassPtr
 
 expGetRuntimeType :: Ast.Exp -> Ast.Assembly -> IO RuntimeType
-expGetRuntimeType e assem = do
-  let astType = Ast.expGetType e
-  return undefined
+expGetRuntimeType e (Ast.Assembly assem) = do
+  image <- assemblyImage assem
+  cls <- monoFindClass' image $ Ast.expGetType e
+  return cls
 
   
   
