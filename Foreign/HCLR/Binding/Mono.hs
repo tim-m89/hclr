@@ -330,25 +330,6 @@ monoGetClass assem ns n = assemblyImage assem >>= \image-> withCString ns (\nsC-
 monoImageGetClass :: MonoImagePtr -> String -> String -> IO MonoClassPtr
 monoImageGetClass image ns n = withCString ns (\nsC-> withCString n (\nC-> mono_class_from_name image nsC nC) ) 
 
-getAppDomainClass = mono_get_corlib >>= \corlib-> monoImageGetClass corlib "System" "AppDomain"
-
-currentAppDomain = invokeMethodCorlib "System.AppDomain" "get_CurrentDomain()" NullObject ()
-
-appDomainGetSetupInfo appDom = invokeMethodCorlib "System.AppDomain" "get_SetupInformation()" appDom ()
-
-
-appDomSetupSetConfig :: Object -> String -> IO Object
-appDomSetupSetConfig appDomSetup configFile = invokeMethodCorlib "System.AppDomainSetup" "set_ConfigurationFile" appDomSetup configFile
-
-appDomSetupGetConfig :: Object -> IO String
-appDomSetupGetConfig appDomSetup = invokeMethodCorlib "System.AppDomainSetup" "get_ConfigurationFile" appDomSetup () >>= unBox
-
-appDomSetupSetBase :: Object -> String -> IO Object
-appDomSetupSetBase appDomSetup base = invokeMethodCorlib "System.AppDomainSetup" "set_ApplicationBase" appDomSetup base
-
-appDomSetupGetBase :: Object -> IO String 
-appDomSetupGetBase appDomSetup  = invokeMethodCorlib "System.AppDomainSetup" "get_ApplicationBase" appDomSetup () >>= unBox
-  
 monoObjectNew :: MonoClassPtr -> IO Object
 monoObjectNew cls = do
   domain <- mono_domain_get
