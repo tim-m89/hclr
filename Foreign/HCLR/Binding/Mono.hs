@@ -10,7 +10,7 @@ import Control.Exception
 import Data.List
 import Foreign
 import Foreign.C
-import Foreign.HCLR.Ast
+import qualified Foreign.HCLR.Ast as Ast
 import System.Environment
 import qualified Data.Text as T
 import Data.Text.Foreign
@@ -114,8 +114,8 @@ monoInit = do
 withRuntime :: IO b -> IO b
 withRuntime x = bracket monoInit mono_jit_cleanup (\z-> x)
 
-assemHasType :: Assembly -> CLRType -> IO Bool
-assemHasType (Assembly a) (CLRType t) = do
+assemHasType :: Ast.Assembly -> Ast.CLRType -> IO Bool
+assemHasType (Ast.Assembly a) (Ast.CLRType t) = do
   let ns = concat $ intersperse "." $ init t
       typ = last t
   assem <- monoLoadAssembly a
@@ -375,8 +375,8 @@ monoFindClass assem typ = do
     Just x -> return x
     Nothing -> return nullPtr
 
-assemblyGetClass :: Assembly -> CLRType -> IO MonoClassPtr
-assemblyGetClass (Assembly a) (CLRType t) = monoFindClass a t
+assemblyGetClass :: Ast.Assembly -> Ast.CLRType -> IO MonoClassPtr
+assemblyGetClass (Ast.Assembly a) (Ast.CLRType t) = monoFindClass a t
 
 splitOn :: Eq a => a -> [a] -> [[a]]
 splitOn _ [] = []
@@ -385,8 +385,8 @@ splitOn x xs =
    (ys,[])   -> [ys]
    (ys,_:zs) -> ys:splitOn x zs
 
-objectNew :: Marshal a => Assembly -> String -> a -> IO Object
-objectNew (Assembly assem) t args = do
+objectNew :: Marshal a => Ast.Assembly -> String -> a -> IO Object
+objectNew (Ast.Assembly assem) t args = do
   let typ = splitOn '.' t
   cls <- monoFindClass assem typ
   o <- monoObjectNew cls
@@ -436,12 +436,15 @@ monoMethodGetReturnClass meth = do
   mono_class_from_mono_type ret
 
 
-expGetReturnType :: Exp -> SymbolTypeMap -> Assembly -> IO CLRType
-expGetReturnType e stm assem = case e of
-  New t a -> return t
-  Invoke t m a -> do
-    cls <- assemblyGetClass assem t
-    return undefined
+type RuntimeType = MonoClassPtr
+
+expGetRuntimeType :: Ast.Exp -> Ast.Assembly -> IO RuntimeType
+expGetRuntimeType e assem = do
+  let astType = Ast.expGetType e
+  return undefined
+
+  
+  
     
     
     
