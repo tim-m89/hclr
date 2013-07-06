@@ -60,5 +60,4 @@ instance Ord Symbol where
   compare (Symbol a) (Symbol b) = compare a b
 
 
-type TypeAssemMap = Map.Map CLRType Assembly
 type SymbolTypeMap = Map.Map Symbol CLRType

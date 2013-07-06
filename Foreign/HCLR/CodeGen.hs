@@ -17,35 +17,31 @@ import Foreign.HCLR.Binding
 import Foreign (nullPtr)
 
 
+type TypeImageMap = Map.Map CLRType Image
 
-data CompilerInfo = CompilerInfo { typeAssemMap :: TypeAssemMap
+data CompilerInfo = CompilerInfo { typeImageMap :: TypeImageMap
                                  , symbolTypeMap :: SymbolTypeMap
-                                 , assemRefs :: [Assembly]
                                  }
 
 type Compiler = StateT CompilerInfo IO
 
-initialCompileState :: [Assembly] -> [(CLRType, Assembly)] -> CompilerInfo
-initialCompileState a ta = CompilerInfo { typeAssemMap = Map.fromList ta
-                                        , symbolTypeMap = Map.empty
-                                        , assemRefs = a
-                                        }
+initialCompileState :: [(CLRType, Image)] -> CompilerInfo
+initialCompileState typImg = CompilerInfo { typeImageMap = Map.fromList typImg
+                                          , symbolTypeMap = Map.empty
+                                          }
 
 
-typeAssem :: CLRType -> Compiler Assembly
-typeAssem typ = do
-  tam <- get >>= return . typeAssemMap
-  return $ fromJust $ Map.lookup typ tam
+typeImage :: CLRType -> Compiler Image
+typeImage typ = do
+  typImages <- get >>= return . typeImageMap
+  return $ fromJust $ Map.lookup typ typImages
 
-referencedAssems :: IO [Assembly]
-referencedAssems = readFile "assemRefs.txt" >>= \x-> mapM (return . Assembly) $ filter (not . null) $ map trim (lines x)
-
-typeFindAssem :: [Assembly] -> CLRType -> IO (Either String (CLRType, Assembly))
-typeFindAssem assems t = do
-    assemsFound <- filterM (\a-> assemHasType a t) assems
+typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, Image))
+typeFindImage images typ = do
+    assemsFound <- filterM (\image-> imageHasType image typ) images
     case (length assemsFound) of
       0 -> return $ Left "Type not found in any assem"
-      1 -> return $ Right (t, head assemsFound)
+      1 -> return $ Right (typ, head assemsFound)
       _ -> return $ Left "Type found in too many assems"
 
 loadImages :: IO (Either String [Image])
@@ -69,17 +65,19 @@ compile :: [Stmt] -> IO (Either String TH.Exp)
 compile x = withRuntime $ do
   putStrLn "Compiling HCLR"
   images <- loadImages
-  assems <- referencedAssems
-  ta <- mapM (\stmt-> typeFindAssem assems $ stmtGetType stmt) x
-  case (sequence ta) of
-    Left tas -> return $ Left tas
-    Right ta' -> do
-      y <- evalStateT  (mapM doStmt x) $ initialCompileState assems ta'
-      case (sequence y) of
-        Left s -> return $ Left s
-        Right y' -> do
-          let z = y' ++  [TH.NoBindS ( (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE []) )]
-          return $ Right $ (TH.VarE (TH.mkName "withRuntime") ) `TH.AppE`  (TH.DoE z) -- [TH.NoBindS $ (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE [])]
+  case images of
+    Left imageLoadError -> return $ Left imageLoadError
+    Right loadedImages -> do
+      typImages <- mapM (\stmt-> typeFindImage loadedImages $ stmtGetType stmt) x
+      case (sequence typImages) of
+        Left typFindError -> return $ Left typFindError
+        Right tim -> do
+          y <- evalStateT  (mapM doStmt x) $ initialCompileState tim
+          case (sequence y) of
+            Left s -> return $ Left s
+            Right y' -> do
+              let z = y' ++  [TH.NoBindS ( (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE []) )]
+              return $ Right $ (TH.VarE (TH.mkName "withRuntime") ) `TH.AppE`  (TH.DoE z) -- [TH.NoBindS $ (TH.VarE (TH.mkName "return") ) `TH.AppE` (TH.TupE [])]
 
 
 
@@ -101,8 +99,9 @@ doExp e =  case e of
   Invoke typ mth (Args args) -> do
     args' <- doArgs args
     argTypes <- doArgTypes args
-    assem <- typeAssem typ
-    return $ Right $ (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (quoteVar assem) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args'
+    image <- typeImage typ
+    imageName <- liftIO $ imageGetName image
+    return $ Right $ (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args'
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of

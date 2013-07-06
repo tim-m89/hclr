@@ -125,6 +125,14 @@ assemHasType (Ast.Assembly a) (Ast.CLRType t) = do
   cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
   return (cls /= nullPtr)
 
+imageHasType :: Image -> Ast.CLRType -> IO Bool
+imageHasType image (Ast.CLRType t) = do
+  let ns = concat $ intersperse "." $ init t
+      typ = last t
+  cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
+  return (cls /= nullPtr)
+
+
 withObject :: Object -> (Word32 -> IO a) -> IO a
 withObject (Object fp) f = withForeignPtr fp $ \p-> do
   x <- peek p
