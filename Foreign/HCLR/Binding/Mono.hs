@@ -438,9 +438,8 @@ monoMethodGetReturnClass meth = do
 
 type RuntimeType = MonoClassPtr
 
-expGetRuntimeType :: Ast.Exp -> Ast.Assembly -> IO RuntimeType
-expGetRuntimeType e (Ast.Assembly assem) = do
-  image <- assemblyImage assem
+expGetRuntimeType :: Ast.Exp -> Image -> IO RuntimeType
+expGetRuntimeType e image = do
   cls <- monoFindClass' image $ Ast.expGetType e
   return cls
 
