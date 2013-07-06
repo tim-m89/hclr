@@ -67,6 +67,8 @@ foreign import ccall mono_value_box :: MonoDomainPtr -> MonoClassPtr -> Ptr Int 
 foreign import ccall mono_object_unbox :: MonoObjectPtr -> IO (Ptr Int)
 foreign import ccall mono_assembly_get_image :: MonoAssemblyPtr -> IO MonoImagePtr
 foreign import ccall mono_assembly_name_new :: CString -> IO MonoAssemblyNamePtr
+foreign import ccall mono_assembly_fill_assembly_name :: MonoImagePtr -> MonoAssemblyNamePtr -> IO GBool
+foreign import ccall mono_stringify_assembly_name :: MonoAssemblyNamePtr -> IO CString
 foreign import ccall mono_assembly_load :: MonoAssemblyNamePtr -> CString -> MonoImageOpenStatusPtr -> IO MonoAssemblyPtr
 foreign import ccall mono_class_from_name :: MonoImagePtr -> CString -> CString -> IO MonoClassPtr
 foreign import ccall mono_object_new :: MonoDomainPtr -> MonoClassPtr -> IO MonoObjectPtr
@@ -323,7 +325,6 @@ invokeMethodCorlib t mth target args = do
   invokeMethodImage corlib t mth target args
 
 
-
 monoGetClass :: String -> String -> String -> IO MonoClassPtr
 monoGetClass assem ns n = assemblyImage assem >>= \image-> withCString ns (\nsC-> withCString n (\nC-> mono_class_from_name image nsC nC) ) 
 
@@ -436,9 +437,12 @@ expGetRuntimeType e (Ast.Assembly assem) = do
   return cls
 
   
-  
-    
-    
-    
-  
+type Image = MonoImagePtr
 
+imageGetName :: Image -> IO String
+imageGetName image = withCString " " $ \s-> do
+  name <- mono_assembly_name_new s
+  mono_assembly_fill_assembly_name image name
+  cstring <- mono_stringify_assembly_name name
+  peekCString cstring
+  

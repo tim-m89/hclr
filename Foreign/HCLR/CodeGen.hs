@@ -1,3 +1,4 @@
+{-# LANGUAGE DoAndIfThenElse #-}
 
 module Foreign.HCLR.CodeGen where
 
@@ -13,6 +14,7 @@ import Language.Haskell.TH.Ppr (pprint)
 import qualified Data.Map as Map
 import Data.String.HT (trim)
 import Foreign.HCLR.Binding
+import Foreign (nullPtr)
 
 
 
@@ -46,12 +48,27 @@ typeFindAssem assems t = do
       1 -> return $ Right (t, head assemsFound)
       _ -> return $ Left "Type found in too many assems"
 
-
+loadImages :: IO (Either String [Image])
+loadImages = do
+  contents <- readFile "assemRefs.txt"
+  let assems = filter (not . null) $ map trim (lines contents)
+  images <- forM assems $ \assem-> do
+    image <- assemblyImage assem
+    if image == nullPtr then
+      return $ Left $ "Could not load " ++ assem
+    else do
+      imageName <- imageGetName image
+      putStrLn $ "Loaded \"" ++ imageName ++ "\""
+      return $ Right image
+  case (sequence) images of
+    Left s -> return $ Left s
+    Right img -> return $ Right img
 
 -- compile takes a list of statements and returns either a compilation error or the haskell ast to load up the code
 compile :: [Stmt] -> IO (Either String TH.Exp)
 compile x = withRuntime $ do
   putStrLn "Compiling HCLR"
+  images <- loadImages
   assems <- referencedAssems
   ta <- mapM (\stmt-> typeFindAssem assems $ stmtGetType stmt) x
   case (sequence ta) of
