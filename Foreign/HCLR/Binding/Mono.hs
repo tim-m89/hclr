@@ -117,13 +117,10 @@ withRuntime :: IO b -> IO b
 withRuntime x = bracket monoInit mono_jit_cleanup (\z-> x)
 
 assemHasType :: Ast.Assembly -> Ast.CLRType -> IO Bool
-assemHasType (Ast.Assembly a) (Ast.CLRType t) = do
-  let ns = concat $ intersperse "." $ init t
-      typ = last t
+assemHasType (Ast.Assembly a) t = do
   assem <- monoLoadAssembly a
   image <- mono_assembly_get_image assem
-  cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
-  return (cls /= nullPtr)
+  imageHasType image t
 
 imageHasType :: Image -> Ast.CLRType -> IO Bool
 imageHasType image (Ast.CLRType t) = do
