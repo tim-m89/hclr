@@ -85,16 +85,16 @@ compile x = withRuntime $ do
 
 doStmt :: Stmt -> Compiler (Either String TH.Stmt)
 doStmt s = case s of
-  NoBindStmt exp -> doExp exp >>= \e-> either (return . Left) (\ex-> do
+  NoBindStmt exp -> doExp exp >>= \e-> either (return . Left) (\(ex,_)-> do
     liftIO $ putStrLn $ pprint ex
     return . Right . TH.NoBindS $ ex ) e
   BindStmt (Symbol name) exp -> do
     e <- doExp exp
-    flip (either $ return . Left) e $ \thexp-> do
+    flip (either $ return . Left) e $ \(thexp,_)-> do
       return . Right . TH.BindS (TH.VarP $ TH.mkName name) $ thexp 
 
 
-doExp :: Exp -> Compiler (Either String TH.Exp)
+doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
 doExp e =  case e of
   New typ args -> undefined
   Invoke typ mth (Args args) -> do
@@ -102,7 +102,7 @@ doExp e =  case e of
     argTypes <- doArgTypes args
     image <- typeImage typ
     imageName <- liftIO $ imageGetName image
-    return $ Right $ (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args'
+    return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of
