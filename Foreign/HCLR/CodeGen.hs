@@ -18,6 +18,8 @@ import Foreign (nullPtr)
 
 
 type TypeImageMap = Map.Map CLRType Image
+type SymbolTypeMap = Map.Map Symbol CLRType
+
 
 data CompilerInfo = CompilerInfo { typeImageMap :: TypeImageMap
                                  , symbolTypeMap :: SymbolTypeMap
@@ -92,7 +94,6 @@ doStmt s = case s of
       return . Right . TH.BindS (TH.VarP $ TH.mkName name) $ thexp 
 
 
-
 doExp :: Exp -> Compiler (Either String TH.Exp)
 doExp e =  case e of
   New typ args -> undefined
@@ -124,6 +125,11 @@ doArgTypes a = do
   case (sequence l) of
     Left l -> undefined
     Right r -> return $ "(" ++ (concat (intersperse "," r)) ++ ")"
+
+argGetType :: Arg -> Compiler RuntimeType
+argGetType arg = case arg of
+  ArgStringLit _ -> liftIO $ stringType
+  ArgSym sym -> undefined
 
 quoteVar :: (Show a) => a -> TH.Exp
 quoteVar x = TH.LitE $ TH.StringL $ show x

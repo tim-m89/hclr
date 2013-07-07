@@ -93,6 +93,7 @@ foreign import ccall mono_runtime_init :: MonoDomainPtr -> Ptr () -> Ptr () -> I
 foreign import ccall mono_set_dirs :: Ptr () -> Ptr () -> IO ()
 foreign import ccall mono_register_config_for_assembly :: CString -> CString -> IO ()
 foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr -> IO MonoTypePtr
+foreign import ccall mono_get_string_class :: IO MonoClassPtr
 
 foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
@@ -410,7 +411,7 @@ isType t1 t2 = do
   c <- monoClassAllSuper t1
   return $ t2 `elem` c
 
-type Sig = [MonoClassPtr]
+type Sig = [RuntimeType]
 
 isSigCompat :: Sig -> Sig -> IO Bool
 isSigCompat sig1 sig2 = zipWithM isType sig1 sig2 >>= \l-> return $ foldl1 (&&) l
@@ -450,3 +451,8 @@ imageGetName image = withCString " " $ \s-> do
   cstring <- mono_stringify_assembly_name name
   peekCString cstring
   
+
+
+stringType :: IO RuntimeType
+stringType = mono_get_string_class
+
