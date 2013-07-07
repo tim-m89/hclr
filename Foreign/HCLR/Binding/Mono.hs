@@ -94,6 +94,7 @@ foreign import ccall mono_set_dirs :: Ptr () -> Ptr () -> IO ()
 foreign import ccall mono_register_config_for_assembly :: CString -> CString -> IO ()
 foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr -> IO MonoTypePtr
 foreign import ccall mono_get_string_class :: IO MonoClassPtr
+foreign import ccall mono_class_get_image :: MonoClassPtr -> IO MonoImagePtr 
 
 foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO MonoHandle
 foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
@@ -129,6 +130,14 @@ imageHasType image (Ast.CLRType t) = do
       typ = last t
   cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
   return (cls /= nullPtr)
+
+imageGetType :: Image -> Ast.CLRType -> IO RuntimeType
+imageGetType  image (Ast.CLRType t) = do
+  let ns = concat $ intersperse "." $ init t
+      typ = last t
+  cls <- withCString ns (\nsc-> withCString typ (\typc-> mono_class_from_name image nsc typc))
+  return cls
+
 
 
 withObject :: Object -> (Word32 -> IO a) -> IO a
@@ -449,10 +458,18 @@ imageGetName image = withCString " " $ \s-> do
   name <- mono_assembly_name_new s
   mono_assembly_fill_assembly_name image name
   cstring <- mono_stringify_assembly_name name
-  peekCString cstring
-  
-
+  peekCString cstring 
 
 stringType :: IO RuntimeType
 stringType = mono_get_string_class
+
+type Method = MonoMethodPtr
+
+typeGetMethods :: RuntimeType -> String -> IO [Method]
+typeGetMethods typ name = return undefined
+
+
+typeGetImage :: RuntimeType -> IO Image
+typeGetImage = mono_class_get_image
+
 

@@ -16,31 +16,34 @@ import Data.String.HT (trim)
 import Foreign.HCLR.Binding
 import Foreign (nullPtr)
 
-
-type TypeImageMap = Map.Map CLRType Image
+type TypeMap = Map.Map CLRType RuntimeType
 type SymbolTypeMap = Map.Map Symbol RuntimeType
 
 
-data CompilerInfo = CompilerInfo { typeImageMap :: TypeImageMap
+data CompilerInfo = CompilerInfo { typeMap :: TypeMap
                                  , symbolTypeMap :: SymbolTypeMap
                                  }
 
 type Compiler = StateT CompilerInfo IO
 
-initialCompileState :: [(CLRType, Image)] -> CompilerInfo
-initialCompileState typImg = CompilerInfo { typeImageMap = Map.fromList typImg
+initialCompileState :: [(CLRType, RuntimeType)] -> CompilerInfo
+initialCompileState typImg = CompilerInfo { typeMap = Map.fromList typImg
                                           , symbolTypeMap = Map.empty
                                           }
 
 
-typeImage :: CLRType -> Compiler Image
-typeImage typ = do
-  typImages <- get >>= return . typeImageMap
-  return $ fromJust $ Map.lookup typ typImages
+expImage :: Exp -> Compiler Image
+expImage exp = do
+  let typ = expGetType exp
+  types <- get >>= return . typeMap
+  let runType = fromJust $ Map.lookup typ types
+  liftIO $ typeGetImage runType
 
-typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, Image))
+typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, RuntimeType))
 typeFindImage images typ = do
-    assemsFound <- filterM (\image-> imageHasType image typ) images
+    --assemsFound <- filterM (\image-> imageHasType image typ) images
+    t <- mapM (\image-> imageGetType image typ) images 
+    let assemsFound = filter (\typ-> typ /= nullPtr) t
     case (length assemsFound) of
       0 -> return $ Left "Type not found in any assem"
       1 -> return $ Right (typ, head assemsFound)
@@ -95,12 +98,11 @@ doStmt s = case s of
 
 
 doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
-doExp e =  case e of
+doExp e = expImage e >>= \image-> case e of
   New typ args -> undefined
   Invoke typ mth (Args args) -> do
     args' <- doArgs args
     argTypes <- doArgTypes args
-    image <- typeImage typ
     imageName <- liftIO $ imageGetName image
     return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
 
