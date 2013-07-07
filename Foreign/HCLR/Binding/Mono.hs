@@ -500,4 +500,6 @@ methodSigIs mth sig = do
 typeGetImage :: RuntimeType -> IO Image
 typeGetImage = mono_class_get_image
 
+methodGetReturnType :: Method -> IO RuntimeType
+methodGetReturnType = monoMethodGetReturnClass
 

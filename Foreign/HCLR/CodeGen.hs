@@ -1,4 +1,4 @@
-{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DoAndIfThenElse, NamedFieldPuns #-}
 
 module Foreign.HCLR.CodeGen where
 
@@ -32,6 +32,10 @@ initialCompileState typImg = CompilerInfo { typeMap = Map.fromList typImg
                                           , symbolTypeMap = Map.empty
                                           }
 
+updateSymbols :: (Symbol, RuntimeType) -> CompilerInfo -> CompilerInfo
+updateSymbols (s,r) CompilerInfo {typeMap, symbolTypeMap} = CompilerInfo { typeMap
+                                                                         , symbolTypeMap = Map.insert s r symbolTypeMap
+                                                                         } 
 
 expImage :: Exp -> Compiler Image
 expImage exp = do
@@ -122,9 +126,10 @@ doStmt s = case s of
   NoBindStmt exp -> doExp exp >>= \e-> either (return . Left) (\(ex,_)-> do
     liftIO $ putStrLn $ pprint ex
     return . Right . TH.NoBindS $ ex ) e
-  BindStmt (Symbol name) exp -> do
-    e <- doExp exp
-    flip (either $ return . Left) e $ \(thexp,_)-> do
+  BindStmt sym@(Symbol name) exp -> do
+    eitherExp <- doExp exp
+    flip (either $ return . Left) eitherExp $ \(thexp,typ)-> do
+      modify $ updateSymbols (sym,typ)
       return . Right . TH.BindS (TH.VarP $ TH.mkName name) $ thexp 
 
 
@@ -146,8 +151,9 @@ doExp exp = do
         New typ args -> undefined
         Invoke typ mth (Args args) -> do
           methodName <- liftIO $ getMethodName method
+          returnType <- liftIO $ methodGetReturnType method
           args' <- doArgs args
-          return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (TH.LitE $ TH.StringL $ methodName ++ sigString) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
+          return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (TH.LitE $ TH.StringL $ methodName ++ sigString) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , returnType)
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of
