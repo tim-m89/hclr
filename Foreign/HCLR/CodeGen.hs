@@ -44,6 +44,20 @@ expType exp = do
   let runType = fromJust $ Map.lookup typ types
   return runType
 
+findMethod :: RuntimeType -> String -> Sig -> IO (Either String Method)
+findMethod typ name sig = do
+  methods <- typeGetMethods typ name
+  if (null methods) then
+    return $ Left $ "No method named " ++ name
+  else do
+    methods2 <- filterM (\method-> methodGetSig method >>= \methodSig-> isSigCompat sig methodSig) methods 
+    case (length methods2) of
+      0 -> return $ Left "No method found with matching sig"
+      1 -> return $ Right (head methods2)
+      _ -> return $ Left "Ambiguous signature"
+
+
+
 typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, RuntimeType))
 typeFindImage images typ = do
     --assemsFound <- filterM (\image-> imageHasType image typ) images
@@ -103,13 +117,16 @@ doStmt s = case s of
 
 
 doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
-doExp e = expImage e >>= \image-> case e of
-  New typ args -> undefined
-  Invoke typ mth (Args args) -> do
-    args' <- doArgs args
-    argTypes <- doArgTypes args
-    imageName <- liftIO $ imageGetName image
-    return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
+doExp e = do
+  image <- expImage e
+  t <- expType e
+  case e of
+    New typ args -> undefined
+    Invoke typ mth (Args args) -> do
+      args' <- doArgs args
+      argTypes <- doArgTypes args
+      imageName <- liftIO $ imageGetName image
+      return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of

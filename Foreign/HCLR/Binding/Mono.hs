@@ -473,6 +473,7 @@ typeGetMethods typ name = do
   methods <- monoClassGetMethods typ
   filterM (\mth-> getMethodName mth >>= \n-> return $ n == name) methods
 
+methodGetSig = monoMethodGetParamClasses
 
 typeGetImage :: RuntimeType -> IO Image
 typeGetImage = mono_class_get_image
