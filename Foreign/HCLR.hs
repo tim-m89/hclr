@@ -1,22 +1,18 @@
 {-# LANGUAGE TemplateHaskell, DoAndIfThenElse #-}
 
 module Foreign.HCLR (
-  
-  module Foreign.Ptr,
-  module Foreign.C.String,
-  module System.Environment,
-  runClr
+  runClr,
+  withRuntime,
+  invokeMethod,
+  Object (..)
 ) where
 
 import Foreign.HCLR.Parser
 import Foreign.HCLR.CodeGen
-import Foreign.Ptr
-import Foreign.C.String
-import System.Environment
+import Foreign.HCLR.Binding
 
 import Data.Either
-import Data.List
-import Data.String.HT
+import Data.String.HT (trim)
 import Text.Parsec.Pos
 import Text.Parsec.Prim
 import Text.Parsec.Error
