@@ -8,7 +8,6 @@ import Control.Monad.Trans.State.Strict
 import Data.List (concat, intersperse, reverse)
 import Data.List.Match (equalLength)
 import Data.Maybe (maybe, fromJust)
-import Data.Tuple (fst, snd)
 import Foreign.HCLR.Ast
 import qualified Language.Haskell.TH.Syntax as TH
 import Language.Haskell.TH.Ppr (pprint)
@@ -68,7 +67,7 @@ findMethod typ name sig = do
       _ -> do
         methodsWithExactSig <- filterM (\m-> methodSigIs m sig) methods2
         case (length methodsWithExactSig) of
-          0 -> undefined
+          0 -> return $ Left "Ambiguous signature"
           1 -> return $ Right (head methodsWithExactSig)
           _ -> return $ Left "Ambiguous signature"
 
@@ -76,7 +75,6 @@ findMethod typ name sig = do
 
 typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, RuntimeType))
 typeFindImage images typ = do
-    --assemsFound <- filterM (\image-> imageHasType image typ) images
     t <- mapM (\image-> imageGetType image typ) images 
     let assemsFound = filter (\typ-> typ /= nullPtr) t
     case (length assemsFound) of
@@ -124,7 +122,7 @@ compile x = withRuntime $ do
 doStmt :: Stmt -> Compiler (Either String TH.Stmt)
 doStmt s = case s of
   NoBindStmt exp -> doExp exp >>= \e-> either (return . Left) (\(ex,_)-> do
-    liftIO $ putStrLn $ pprint ex
+    liftIO $ putStrLn $ pprint ex  --debuggin
     return . Right . TH.NoBindS $ ex ) e
   BindStmt sym@(Symbol name) exp -> do
     eitherExp <- doExp exp
