@@ -37,7 +37,7 @@ data MonoMethod = MonoMethod
 type MonoMethodPtr = Ptr MonoMethod
 data MonoObject = MonoObject
 type MonoObjectPtr = Ptr MonoObject
-type MonoHandle = Word32
+type ObjectHandle = Word32
 data MonoClass = MonoClass
 type MonoClassPtr = Ptr MonoClass
 data MonoImageOpenStatus = MonoImageOpenStatus
@@ -60,9 +60,9 @@ foreign import ccall mono_method_desc_search_in_image :: MonoMethodDescPtr -> Mo
 foreign import ccall mono_method_desc_free :: MonoMethodDescPtr -> IO ()
 foreign import ccall mono_runtime_invoke :: MonoMethodPtr -> MonoObjectPtr -> Ptr MonoObjectPtr -> Ptr () -> IO MonoObjectPtr
 foreign import ccall mono_domain_get :: IO MonoDomainPtr
-foreign import ccall mono_gchandle_new  :: MonoObjectPtr -> GBool -> IO MonoHandle
-foreign import ccall mono_gchandle_get_target :: MonoHandle -> IO MonoObjectPtr
-foreign import ccall mono_gchandle_free :: MonoHandle -> IO ()
+foreign import ccall mono_gchandle_new  :: MonoObjectPtr -> GBool -> IO ObjectHandle
+foreign import ccall mono_gchandle_get_target :: ObjectHandle -> IO MonoObjectPtr
+foreign import ccall mono_gchandle_free :: ObjectHandle -> IO ()
 foreign import ccall mono_get_int16_class :: IO MonoClassPtr
 foreign import ccall mono_value_box :: MonoDomainPtr -> MonoClassPtr -> Ptr Int -> IO MonoObjectPtr
 foreign import ccall mono_object_unbox :: MonoObjectPtr -> IO (Ptr Int)
@@ -99,9 +99,9 @@ foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr ->
 foreign import ccall mono_get_string_class :: IO MonoClassPtr
 foreign import ccall mono_class_get_image :: MonoClassPtr -> IO MonoImagePtr 
 
-foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO MonoHandle
-foreign import ccall "marshal.c getString" getString :: MonoHandle -> IO (Ptr Word16)
-foreign import ccall "marshal.c stringLength" stringLength :: MonoHandle -> IO Int32
+foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO ObjectHandle
+foreign import ccall "marshal.c getString" getString :: ObjectHandle -> IO (Ptr Word16)
+foreign import ccall "marshal.c stringLength" stringLength :: ObjectHandle -> IO Int32
 foreign import ccall "marshal.c setupDomain" setupDomain :: MonoDomainPtr -> CString -> CString -> IO () 
 
 
@@ -135,7 +135,7 @@ withObject (Object fp) f = withForeignPtr fp $ \p-> do
   x <- peek p
   f x
 
-data Object = NullObject | Object {oid :: ForeignPtr MonoHandle}
+data Object = NullObject | Object {oid :: ForeignPtr ObjectHandle}
 
 objectFromPtr :: MonoObjectPtr -> IO Object
 objectFromPtr oP = do
@@ -147,7 +147,7 @@ objectFromPtr oP = do
 
   
 
-objectGetHandle :: Object -> IO MonoHandle
+objectGetHandle :: Object -> IO ObjectHandle
 objectGetHandle (Object fp) =  withForeignPtr fp peek
 
 objectGetTarget :: Object -> IO MonoObjectPtr
