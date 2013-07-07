@@ -120,6 +120,7 @@ doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
 doExp e = do
   image <- expImage e
   t <- expType e
+  sig <- argsGetSig (expGetArgs e)
   case e of
     New typ args -> undefined
     Invoke typ mth (Args args) -> do

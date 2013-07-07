@@ -42,6 +42,11 @@ expGetType e = case e of
   New t a -> t
   Invoke t m a -> t
 
+expGetArgs :: Exp -> Args
+expGetArgs e = case e of
+  New t a -> a
+  Invoke t m a -> a
+
 newtype Assembly = Assembly String
 instance Show Assembly where
   show (Assembly a) = a
