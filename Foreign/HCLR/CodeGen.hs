@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
 import Data.List (concat, intersperse)
+import Data.List.Match (equalLength)
 import Data.Maybe (maybe, fromJust)
 import Data.Tuple (fst, snd)
 import Foreign.HCLR.Ast
@@ -44,17 +45,28 @@ expType exp = do
   let runType = fromJust $ Map.lookup typ types
   return runType
 
+
 findMethod :: RuntimeType -> String -> Sig -> IO (Either String Method)
 findMethod typ name sig = do
   methods <- typeGetMethods typ name
   if (null methods) then
     return $ Left $ "No method named " ++ name
   else do
-    methods2 <- filterM (\method-> methodGetSig method >>= \methodSig-> isSigCompat sig methodSig) methods 
+    methods2 <- filterM (\method-> do
+      methodSig <- methodGetSig method
+      if not $ equalLength sig methodSig then
+        return False
+      else
+        isSigCompat sig methodSig) methods 
     case (length methods2) of
       0 -> return $ Left "No method found with matching sig"
       1 -> return $ Right (head methods2)
-      _ -> return $ Left "Ambiguous signature"
+      _ -> do
+        methodsWithExactSig <- filterM (\m-> methodSigIs m sig) methods2
+        case (length methodsWithExactSig) of
+          0 -> undefined
+          1 -> return $ Right (head methodsWithExactSig)
+          _ -> return $ Left "Ambiguous signature"
 
 
 
@@ -117,39 +129,33 @@ doStmt s = case s of
 
 
 doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
-doExp e = do
-  image <- expImage e
-  t <- expType e
-  sig <- argsGetSig (expGetArgs e)
-  case e of
-    New typ args -> undefined
-    Invoke typ mth (Args args) -> do
-      args' <- doArgs args
-      argTypes <- doArgTypes args
-      imageName <- liftIO $ imageGetName image
-      return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (doMethodName mth argTypes) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
+doExp exp = do
+  image <- expImage exp
+  imageName <- liftIO $ imageGetName image
+  t <- expType exp
+  esig <- argsGetSig (expGetArgs exp)
+  case esig of
+    Left sigError -> return $ Left sigError
+    Right sig -> do
+    emethod <- liftIO $ findMethod t (expGetCallName exp) sig
+    case emethod of
+      Left noMethod -> return $ Left noMethod
+      Right method -> do
+      sigString <- liftIO $ methodGetSigString method
+      case exp of
+        New typ args -> undefined
+        Invoke typ mth (Args args) -> do
+          methodName <- liftIO $ getMethodName method
+          args' <- doArgs args
+          return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (TH.LitE $ TH.StringL $ methodName ++ sigString) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , nullPtr)
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of
   ArgStringLit (StringLiteral s) -> return $ TH.LitE $ TH.StringL s
   ArgSym (Symbol s) -> return $ TH.VarE $ TH.mkName s
 
-doArgType :: Arg -> Compiler (Either String String)
-doArgType a = case a of
-  ArgStringLit (StringLiteral s) -> return $ Right "string"
-  ArgSym sym@(Symbol s) -> undefined {- do
-    symTypes <- get >>= return . symbolTypeMap 
-    return $ maybe (Left $ "Unknown symbol " ++ s) (Right . show) $ Map.lookup sym symTypes -}
-
 doArgs :: [Arg] -> Compiler TH.Exp
 doArgs a = mapM (doArg) a >>= \l-> return $ TH.TupE l
-
-doArgTypes :: [Arg] -> Compiler String
-doArgTypes a = do
-  l <- mapM (doArgType) a
-  case (sequence l) of
-    Left l -> undefined
-    Right r -> return $ "(" ++ (concat (intersperse "," r)) ++ ")"
 
 argGetType :: Arg -> Compiler (Either String RuntimeType)
 argGetType arg = case arg of
@@ -169,6 +175,5 @@ argsGetSig (Args a) = do
 quoteVar :: (Show a) => a -> TH.Exp
 quoteVar x = TH.LitE $ TH.StringL $ show x
 
-doMethodName mth args = TH.LitE $ TH.StringL $ (show mth) ++ args
 
 

@@ -8,6 +8,7 @@ import Foreign.HCLR.Binding.Common
 import Control.Monad (replicateM, zipWithM, filterM)
 import Control.Exception
 import Data.List
+import Data.Maybe (fromJust)
 import Foreign
 import Foreign.C
 import qualified Foreign.HCLR.Ast as Ast
@@ -80,6 +81,7 @@ foreign import ccall mono_class_get_methods :: MonoClassPtr -> Ptr (Ptr Int) -> 
 foreign import ccall mono_signature_get_param_count :: MonoMethodSignaturePtr -> IO Int
 foreign import ccall mono_signature_get_params :: MonoMethodSignaturePtr -> Ptr (Ptr Int) -> IO MonoTypePtr
 foreign import ccall mono_method_get_name :: MonoMethodPtr -> IO CString
+foreign import ccall mono_method_full_name :: MonoMethodPtr -> GBool -> IO CString
 foreign import ccall mono_method_signature :: MonoMethodPtr -> IO MonoMethodSignaturePtr
 foreign import ccall mono_class_get_name :: MonoClassPtr -> IO CString
 foreign import ccall mono_class_get_parent :: MonoClassPtr -> IO MonoClassPtr
@@ -425,6 +427,9 @@ type Sig = [RuntimeType]
 isSigCompat :: Sig -> Sig -> IO Bool
 isSigCompat sig1 sig2 = zipWithM isType sig1 sig2 >>= \l-> return $ foldl1 (&&) l
 
+isSigSame :: Sig -> Sig -> IO Bool
+isSigSame sig1 sig2 = zipWithM (\t1-> \t2-> return $ t1 == t2) sig1 sig2 >>= \l-> return $ foldl1 (&&) l
+
 monoClassGetMethods :: MonoClassPtr -> IO [MonoMethodPtr]
 monoClassGetMethods cls = with (nullPtr::Ptr Int) $ \iter-> do
   i <- mono_class_num_methods cls
@@ -450,7 +455,7 @@ expGetRuntimeType e image = do
   cls <- monoFindClass' image $ Ast.expGetType e
   return cls
 
-  
+
 type Image = MonoImagePtr
 
 imageGetName :: Image -> IO String
@@ -468,12 +473,29 @@ type Method = MonoMethodPtr
 getMethodName :: Method -> IO String
 getMethodName mth = mono_method_get_name mth >>= peekCString
 
+methodGetFullName mth = mono_method_full_name mth gboolTrue >>= peekCString
+
 typeGetMethods :: RuntimeType -> String -> IO [Method]
 typeGetMethods typ name = do
   methods <- monoClassGetMethods typ
   filterM (\mth-> getMethodName mth >>= \n-> return $ n == name) methods
 
-methodGetSig = monoMethodGetParamClasses
+methodGetSig :: Method -> IO Sig
+methodGetSig mth = do
+  name <- getMethodName mth
+  monoMethodGetParamClasses mth
+
+methodGetSigString :: Method -> IO String
+methodGetSigString mth = do
+  fullName <- methodGetFullName mth
+  let i = fromJust $ elemIndex '(' fullName
+  return $ drop i fullName
+  
+
+methodSigIs :: Method -> Sig -> IO Bool
+methodSigIs mth sig = do
+  sig2 <- methodGetSig mth
+  isSigSame sig sig2
 
 typeGetImage :: RuntimeType -> IO Image
 typeGetImage = mono_class_get_image
