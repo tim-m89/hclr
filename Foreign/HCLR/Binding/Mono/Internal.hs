@@ -1,17 +1,12 @@
-{-# LANGUAGE ForeignFunctionInterface, TypeSynonymInstances, FlexibleInstances, DoAndIfThenElse, UndecidableInstances, IncoherentInstances #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 
 module Foreign.HCLR.Binding.Mono.Internal (
   module Foreign.HCLR.Binding.Mono.Internal
 ) where
 
-import Control.Exception
-import Data.List
 import Foreign
 import Foreign.C
-import System.Environment
-import qualified Data.Text as T
-import Data.Text.Foreign
-import qualified Foreign.Concurrent as FC
+import System.Environment (getProgName)
 
 type GBool = CInt
 gboolTrue :: GBool
@@ -35,7 +30,6 @@ data MonoMethod = MonoMethod
 type MonoMethodPtr = Ptr MonoMethod
 data MonoObject = MonoObject
 type MonoObjectPtr = Ptr MonoObject
-type ObjectHandle = Word32
 data MonoClass = MonoClass
 type MonoClassPtr = Ptr MonoClass
 data MonoImageOpenStatus = MonoImageOpenStatus
@@ -46,6 +40,8 @@ data MonoType = MonoType
 type MonoTypePtr = Ptr MonoType
 data MonoProperty = MonoProperty
 type MonoPropertyPtr = Ptr MonoProperty
+
+type ObjectHandle = Word32 --a handle to prevent object ptrs being reclaimed by the gc
 
 foreign import ccall mono_jit_init :: CString -> IO MonoDomainPtr
 foreign import ccall mono_jit_cleanup :: MonoDomainPtr -> IO ()
@@ -96,7 +92,6 @@ foreign import ccall mono_register_config_for_assembly :: CString -> CString -> 
 foreign import ccall mono_signature_get_return_type :: MonoMethodSignaturePtr -> IO MonoTypePtr
 foreign import ccall mono_get_string_class :: IO MonoClassPtr
 foreign import ccall mono_class_get_image :: MonoClassPtr -> IO MonoImagePtr 
-foreign import ccall "marshal.c boxString" boxString :: Ptr Word16 -> Int32 -> IO ObjectHandle
 foreign import ccall "marshal.c getString" getString :: ObjectHandle -> IO (Ptr Word16)
 foreign import ccall "marshal.c stringLength" stringLength :: ObjectHandle -> IO Int32
 foreign import ccall "marshal.c setupDomain" setupDomain :: MonoDomainPtr -> CString -> CString -> IO () 

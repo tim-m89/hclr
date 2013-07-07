@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, TypeSynonymInstances, FlexibleInstances, DoAndIfThenElse, UndecidableInstances, IncoherentInstances #-}
+{-# LANGUAGE FlexibleInstances, DoAndIfThenElse, UndecidableInstances, IncoherentInstances #-}
 
 module Foreign.HCLR.Binding.Mono (
   module Foreign.HCLR.Binding.Mono
@@ -7,15 +7,14 @@ module Foreign.HCLR.Binding.Mono (
 import Foreign.HCLR.Binding.Common
 import Foreign.HCLR.Binding.Mono.Internal
 import Control.Monad (replicateM, zipWithM, filterM)
-import Control.Exception
-import Data.List
+import Control.Exception (bracket)
+import Data.List (intersperse, intercalate, find, elemIndex)
 import Data.Maybe (fromJust)
 import Foreign
 import Foreign.C
 import qualified Foreign.HCLR.Ast as Ast
-import System.Environment
 import qualified Data.Text as T
-import Data.Text.Foreign
+import Data.Text.Foreign (useAsPtr, fromPtr)
 import qualified Foreign.Concurrent as FC
 
 

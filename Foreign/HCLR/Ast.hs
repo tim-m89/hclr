@@ -1,6 +1,6 @@
 module Foreign.HCLR.Ast where
 
-import Data.List
+import Data.List (intersperse)
 import qualified Data.Map as Map
 
 newtype StringLiteral = StringLiteral String

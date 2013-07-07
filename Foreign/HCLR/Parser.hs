@@ -2,7 +2,7 @@
 
 module Foreign.HCLR.Parser where
 
-import Data.String.HT
+import Data.String.HT (trim)
 import Foreign.HCLR.Ast
 import Text.Parsec.Char
 import Text.Parsec.Combinator

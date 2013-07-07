@@ -1,11 +1,13 @@
 {-# LANGUAGE DoAndIfThenElse, NamedFieldPuns #-}
 
-module Foreign.HCLR.CodeGen where
+module Foreign.HCLR.CodeGen (
+  compile
+) where
 
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.State.Strict
-import Data.List (concat, intersperse, reverse)
+import Control.Monad (filterM, forM)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify)
+import Data.List (reverse)
 import Data.List.Match (equalLength)
 import Data.Maybe (maybe, fromJust)
 import Foreign.HCLR.Ast

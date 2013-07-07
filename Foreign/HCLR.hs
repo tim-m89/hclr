@@ -8,17 +8,15 @@ module Foreign.HCLR (
   Object (..)
 ) where
 
-import Foreign.HCLR.Parser
-import Foreign.HCLR.CodeGen
+import Foreign.HCLR.Parser (parseStmtLine)
+import Foreign.HCLR.CodeGen (compile)
 import Foreign.HCLR.Binding
 
 import Data.Either
 import Data.String.HT (trim)
-import Text.Parsec.Pos
-import Text.Parsec.Prim
-import Text.Parsec.Error
-import Language.Haskell.TH.Lib
-import Language.Haskell.TH.Ppr
+import Text.Parsec.Pos (sourceLine)
+import Text.Parsec.Prim (parse)
+import Text.Parsec.Error (errorPos)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
 
