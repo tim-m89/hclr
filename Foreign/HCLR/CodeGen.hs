@@ -126,10 +126,13 @@ doArgTypes a = do
     Left l -> undefined
     Right r -> return $ "(" ++ (concat (intersperse "," r)) ++ ")"
 
-argGetType :: Arg -> Compiler RuntimeType
+argGetType :: Arg -> Compiler (Either String RuntimeType)
 argGetType arg = case arg of
-  ArgStringLit _ -> liftIO $ stringType
-  ArgSym sym -> undefined
+  ArgStringLit _ -> liftIO $ stringType >>= return . Right
+  ArgSym sym -> do
+    symTypes <- get >>= return . symbolTypeMap
+    let typ = Map.lookup sym symTypes
+    return $ maybe (Left $ "Unknown symbol " ++ show sym) Right typ 
 
 quoteVar :: (Show a) => a -> TH.Exp
 quoteVar x = TH.LitE $ TH.StringL $ show x
