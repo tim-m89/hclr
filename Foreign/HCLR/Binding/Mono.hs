@@ -395,13 +395,19 @@ splitOn x xs =
    (ys,[])   -> [ys]
    (ys,_:zs) -> ys:splitOn x zs
 
-objectNew :: Marshal a => RuntimeType -> a -> IO Object
-objectNew typ args = do
+objectNewRuntime :: Marshal a => RuntimeType -> a -> IO Object
+objectNewRuntime typ args = do
   o <- monoObjectNew typ
   image <- typeGetImage typ
   t <- typeGetName typ >>= \name-> typeGetNS typ >>= \ns-> return $ ns ++ "." ++ name 
   invokeMethodImage image t ".ctor()" o args
   return o
+
+newObject :: Marshal a => String -> String -> a -> IO Object
+newObject assem typ args = do
+  cls <- monoFindClass assem (splitOn '.' typ)
+  objectNewRuntime cls args
+
 
 monoClassName :: MonoClassPtr -> IO String
 monoClassName x = mono_class_get_name x >>= peekCString
