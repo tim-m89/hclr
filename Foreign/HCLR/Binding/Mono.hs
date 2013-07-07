@@ -84,6 +84,7 @@ foreign import ccall mono_method_get_name :: MonoMethodPtr -> IO CString
 foreign import ccall mono_method_full_name :: MonoMethodPtr -> GBool -> IO CString
 foreign import ccall mono_method_signature :: MonoMethodPtr -> IO MonoMethodSignaturePtr
 foreign import ccall mono_class_get_name :: MonoClassPtr -> IO CString
+foreign import ccall mono_class_get_namespace :: MonoClassPtr -> IO CString
 foreign import ccall mono_class_get_parent :: MonoClassPtr -> IO MonoClassPtr
 foreign import ccall mono_class_from_mono_type :: MonoTypePtr -> IO MonoClassPtr
 foreign import ccall mono_class_get_property_from_name :: MonoClassPtr -> CString -> IO MonoPropertyPtr
@@ -394,12 +395,12 @@ splitOn x xs =
    (ys,[])   -> [ys]
    (ys,_:zs) -> ys:splitOn x zs
 
-objectNew :: Marshal a => Ast.Assembly -> String -> a -> IO Object
-objectNew (Ast.Assembly assem) t args = do
-  let typ = splitOn '.' t
-  cls <- monoFindClass assem typ
-  o <- monoObjectNew cls
-  invokeMethod assem t ".ctor()" o args
+objectNew :: Marshal a => RuntimeType -> a -> IO Object
+objectNew typ args = do
+  o <- monoObjectNew typ
+  image <- typeGetImage typ
+  t <- typeGetName typ >>= \name-> typeGetNS typ >>= \ns-> return $ ns ++ "." ++ name 
+  invokeMethodImage image t ".ctor()" o args
   return o
 
 monoClassName :: MonoClassPtr -> IO String
@@ -473,7 +474,7 @@ type Method = MonoMethodPtr
 getMethodName :: Method -> IO String
 getMethodName mth = mono_method_get_name mth >>= peekCString
 
-methodGetFullName mth = mono_method_full_name mth gboolTrue >>= peekCString
+methodGetFullName mth withSig = mono_method_full_name mth withSig >>= peekCString
 
 typeGetMethods :: RuntimeType -> String -> IO [Method]
 typeGetMethods typ name = do
@@ -487,7 +488,7 @@ methodGetSig mth = do
 
 methodGetSigString :: Method -> IO String
 methodGetSigString mth = do
-  fullName <- methodGetFullName mth
+  fullName <- methodGetFullName mth gboolTrue
   let i = fromJust $ elemIndex '(' fullName
   return $ drop i fullName
   
@@ -503,3 +504,6 @@ typeGetImage = mono_class_get_image
 methodGetReturnType :: Method -> IO RuntimeType
 methodGetReturnType = monoMethodGetReturnClass
 
+typeGetName typ = mono_class_get_name typ  >>= peekCString
+
+typeGetNS typ = mono_class_get_namespace typ >>= peekCString 
