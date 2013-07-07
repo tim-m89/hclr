@@ -134,6 +134,13 @@ argGetType arg = case arg of
     let typ = Map.lookup sym symTypes
     return $ maybe (Left $ "Unknown symbol " ++ show sym) Right typ 
 
+argsGetSig :: Args -> Compiler (Either String Sig)
+argsGetSig (Args a) = do
+  l <- mapM argGetType a
+  case (sequence l) of
+    Left s -> return $ Left s
+    Right sig -> return $ Right sig
+
 quoteVar :: (Show a) => a -> TH.Exp
 quoteVar x = TH.LitE $ TH.StringL $ show x
 
