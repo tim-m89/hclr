@@ -34,18 +34,23 @@ instance Show Stmt where
 
 stmtGetType :: Stmt -> CLRType
 stmtGetType s = case s of
-  BindStmt sym e -> expGetType e
+  BindStmt _ e -> expGetType e
   NoBindStmt e -> expGetType e
 
 expGetType :: Exp -> CLRType
 expGetType e = case e of
-  New t a -> t
-  Invoke t m a -> t
+  New t _ -> t
+  Invoke t _ _ -> t
 
 expGetArgs :: Exp -> Args
 expGetArgs e = case e of
-  New t a -> a
-  Invoke t m a -> a
+  New _ a -> a
+  Invoke _ _ a -> a
+
+expGetCallName :: Exp -> String
+expGetCallName e = case e of
+  New _ _ -> ".ctor"
+  Invoke _ (CLRMethod name) _ -> name
 
 newtype Assembly = Assembly String
 instance Show Assembly where
