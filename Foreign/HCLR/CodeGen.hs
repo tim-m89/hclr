@@ -139,6 +139,7 @@ doExp exp = do
   imageName <- liftIO $ imageGetName image
   t <- expType exp
   esig <- argsGetSig (expGetArgs exp)
+  args <- expDoArgs exp
   case esig of
     Left sigError -> return $ Left sigError
     Right sig -> do
@@ -148,20 +149,24 @@ doExp exp = do
       Right method -> do
       sigString <- liftIO $ methodGetSigString method
       case exp of
-        New typ args -> undefined
-        Invoke typ mth (Args args) -> do
+        New typ _ -> undefined
+        Invoke typ _ _ -> do
           methodName <- liftIO $ getMethodName method
           returnType <- liftIO $ methodGetReturnType method
-          args' <- doArgs args
-          return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (TH.LitE $ TH.StringL $ methodName ++ sigString) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args' , returnType)
+          return $ Right $ ( (TH.VarE (TH.mkName "invokeMethod") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` (TH.LitE $ TH.StringL $ methodName ++ sigString) `TH.AppE` (TH.ConE (TH.mkName "NullObject") ) `TH.AppE` args , returnType)
 
 doArg :: Arg -> Compiler TH.Exp
 doArg a = case a of
   ArgStringLit (StringLiteral s) -> return $ TH.LitE $ TH.StringL s
   ArgSym (Symbol s) -> return $ TH.VarE $ TH.mkName s
 
-doArgs :: [Arg] -> Compiler TH.Exp
-doArgs a = mapM (doArg) a >>= \l-> return $ TH.TupE l
+doArgs :: Args -> Compiler TH.Exp
+doArgs (Args a) = mapM (doArg) a >>= \l-> return $ TH.TupE l
+
+expDoArgs :: Exp -> Compiler TH.Exp
+expDoArgs exp = case exp of
+    New _ args -> doArgs args
+    Invoke _ _ args -> doArgs args
 
 argGetType :: Arg -> Compiler (Either String RuntimeType)
 argGetType arg = case arg of
