@@ -5,7 +5,7 @@ module Foreign.HCLR.Binding.Mono (
 ) where
 
 import Foreign.HCLR.Binding.Common
-import Control.Monad (replicateM, zipWithM)
+import Control.Monad (replicateM, zipWithM, filterM)
 import Control.Exception
 import Data.List
 import Foreign
@@ -465,8 +465,13 @@ stringType = mono_get_string_class
 
 type Method = MonoMethodPtr
 
+getMethodName :: Method -> IO String
+getMethodName mth = mono_method_get_name mth >>= peekCString
+
 typeGetMethods :: RuntimeType -> String -> IO [Method]
-typeGetMethods typ name = return undefined
+typeGetMethods typ name = do
+  methods <- monoClassGetMethods typ
+  filterM (\mth-> getMethodName mth >>= \n-> return $ n == name) methods
 
 
 typeGetImage :: RuntimeType -> IO Image

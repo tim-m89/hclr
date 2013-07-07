@@ -34,10 +34,15 @@ initialCompileState typImg = CompilerInfo { typeMap = Map.fromList typImg
 
 expImage :: Exp -> Compiler Image
 expImage exp = do
+  runType <- expType exp
+  liftIO $ typeGetImage runType
+
+expType :: Exp -> Compiler RuntimeType
+expType exp = do
   let typ = expGetType exp
   types <- get >>= return . typeMap
   let runType = fromJust $ Map.lookup typ types
-  liftIO $ typeGetImage runType
+  return runType
 
 typeFindImage :: [Image] -> CLRType -> IO (Either String (CLRType, RuntimeType))
 typeFindImage images typ = do
@@ -61,7 +66,7 @@ loadImages = do
       imageName <- imageGetName image
       putStrLn $ "Loaded \"" ++ imageName ++ "\""
       return $ Right image
-  case (sequence) images of
+  case (sequence images) of
     Left s -> return $ Left s
     Right img -> return $ Right img
 
