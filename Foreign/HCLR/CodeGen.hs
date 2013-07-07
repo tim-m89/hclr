@@ -18,7 +18,7 @@ import Foreign (nullPtr)
 
 
 type TypeImageMap = Map.Map CLRType Image
-type SymbolTypeMap = Map.Map Symbol CLRType
+type SymbolTypeMap = Map.Map Symbol RuntimeType
 
 
 data CompilerInfo = CompilerInfo { typeImageMap :: TypeImageMap
@@ -112,9 +112,9 @@ doArg a = case a of
 doArgType :: Arg -> Compiler (Either String String)
 doArgType a = case a of
   ArgStringLit (StringLiteral s) -> return $ Right "string"
-  ArgSym sym@(Symbol s) -> do
+  ArgSym sym@(Symbol s) -> undefined {- do
     symTypes <- get >>= return . symbolTypeMap 
-    return $ maybe (Left $ "Unknown symbol " ++ s) (Right . show) $ Map.lookup sym symTypes
+    return $ maybe (Left $ "Unknown symbol " ++ s) (Right . show) $ Map.lookup sym symTypes -}
 
 doArgs :: [Arg] -> Compiler TH.Exp
 doArgs a = mapM (doArg) a >>= \l-> return $ TH.TupE l
