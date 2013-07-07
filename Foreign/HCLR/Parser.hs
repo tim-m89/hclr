@@ -19,7 +19,7 @@ parseStringLiteral = do
 
 parseSymbol :: Parser Symbol
 parseSymbol = do
-  sym <- many (char '_' <|> alphaNum)
+  sym <- many1 (char '_' <|> alphaNum)
   return $ Symbol sym
 
 parseArg :: Parser Arg

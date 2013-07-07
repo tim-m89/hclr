@@ -4,6 +4,7 @@ module Foreign.HCLR (
   runClr,
   withRuntime,
   invokeMethod,
+  newObject,
   Object (..)
 ) where
 

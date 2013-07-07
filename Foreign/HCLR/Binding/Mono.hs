@@ -432,7 +432,11 @@ isType t1 t2 = do
 type Sig = [RuntimeType]
 
 isSigCompat :: Sig -> Sig -> IO Bool
-isSigCompat sig1 sig2 = zipWithM isType sig1 sig2 >>= \l-> return $ foldl1 (&&) l
+isSigCompat sig1 sig2 = do
+  if null sig1 && null sig2 then
+    return True
+  else
+    zipWithM isType sig1 sig2 >>= \l-> return $ foldl1 (&&) l
 
 isSigSame :: Sig -> Sig -> IO Bool
 isSigSame sig1 sig2 = zipWithM (\t1-> \t2-> return $ t1 == t2) sig1 sig2 >>= \l-> return $ foldl1 (&&) l

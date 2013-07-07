@@ -5,7 +5,7 @@ module Foreign.HCLR.CodeGen where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State.Strict
-import Data.List (concat, intersperse)
+import Data.List (concat, intersperse, reverse)
 import Data.List.Match (equalLength)
 import Data.Maybe (maybe, fromJust)
 import Data.Tuple (fst, snd)
@@ -33,7 +33,7 @@ initialCompileState typImg = CompilerInfo { typeMap = Map.fromList typImg
                                           }
 
 updateSymbols :: (Symbol, RuntimeType) -> CompilerInfo -> CompilerInfo
-updateSymbols (s,r) CompilerInfo {typeMap, symbolTypeMap} = CompilerInfo { typeMap
+updateSymbols (s, r) CompilerInfo {typeMap, symbolTypeMap} = CompilerInfo { typeMap
                                                                          , symbolTypeMap = Map.insert s r symbolTypeMap
                                                                          } 
 
@@ -112,7 +112,7 @@ compile x = withRuntime $ do
       case (sequence typImages) of
         Left typFindError -> return $ Left typFindError
         Right tim -> do
-          y <- evalStateT  (mapM doStmt x) $ initialCompileState tim
+          y <- evalStateT  (mapM doStmt (reverse x)) $ initialCompileState tim
           case (sequence y) of
             Left s -> return $ Left s
             Right y' -> do
@@ -132,7 +132,6 @@ doStmt s = case s of
       modify $ updateSymbols (sym,typ)
       return . Right . TH.BindS (TH.VarP $ TH.mkName name) $ thexp 
 
-
 doExp :: Exp -> Compiler (Either String (TH.Exp, RuntimeType))
 doExp exp = do
   image <- expImage exp
@@ -149,7 +148,8 @@ doExp exp = do
       Right method -> do
       sigString <- liftIO $ methodGetSigString method
       case exp of
-        New typ _ -> undefined
+        New typ _ -> do
+          return $ Right $ ( (TH.VarE (TH.mkName "newObject") ) `TH.AppE` (TH.LitE $ TH.StringL $ imageName) `TH.AppE` (quoteVar typ) `TH.AppE` args , t)
         Invoke typ _ _ -> do
           methodName <- liftIO $ getMethodName method
           returnType <- liftIO $ methodGetReturnType method
@@ -174,7 +174,7 @@ argGetType arg = case arg of
   ArgSym sym -> do
     symTypes <- get >>= return . symbolTypeMap
     let typ = Map.lookup sym symTypes
-    return $ maybe (Left $ "Unknown symbol " ++ show sym) Right typ 
+    return $ maybe (Left $ "Unknown symbol \"" ++ show sym ++ "\"") Right typ 
 
 argsGetSig :: Args -> Compiler (Either String Sig)
 argsGetSig (Args a) = do

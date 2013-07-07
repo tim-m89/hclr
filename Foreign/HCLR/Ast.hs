@@ -8,7 +8,7 @@ instance Show StringLiteral where
   show (StringLiteral s) = "\"" ++ s ++ "\" "
 newtype Symbol = Symbol String
 instance Show Symbol where
-  show (Symbol s) = s ++ " "
+  show (Symbol s) = s
 data Arg = ArgStringLit StringLiteral | ArgSym Symbol
 instance Show Arg where
   show (ArgStringLit x) = show x
