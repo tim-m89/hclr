@@ -8,7 +8,6 @@ import Control.Monad (filterM, forM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify)
 import Data.List (reverse)
-import Data.List.Match (equalLength)
 import Data.Maybe (maybe, fromJust)
 import Foreign.HCLR.Ast
 import qualified Language.Haskell.TH.Syntax as TH
@@ -35,8 +34,11 @@ initialCompileState typImg = CompilerInfo { typeMap = Map.fromList typImg
 
 updateSymbols :: (Symbol, RuntimeType) -> CompilerInfo -> CompilerInfo
 updateSymbols (s, r) CompilerInfo {typeMap, symbolTypeMap} = CompilerInfo { typeMap
-                                                                         , symbolTypeMap = Map.insert s r symbolTypeMap
-                                                                         } 
+                                                                          , symbolTypeMap = Map.insert s r symbolTypeMap
+                                                                          } 
+
+sameLength :: [a] -> [b] -> Bool
+sameLength a b = (length a) == (length b)
 
 expImage :: Exp -> Compiler Image
 expImage exp = do
@@ -59,7 +61,7 @@ findMethod typ name sig = do
   else do
     methods2 <- filterM (\method-> do
       methodSig <- methodGetSig method
-      if not $ equalLength sig methodSig then
+      if not $ sameLength sig methodSig then
         return False
       else
         isSigCompat sig methodSig) methods 
