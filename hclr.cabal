@@ -54,8 +54,9 @@ Executable hclr
   if !os(windows) || flag(use_mono)
     Cpp-options: -DMONO
     cc-options: -DMONO
-    Extra-libraries: glib-2.0, mono-2.0, pthread
-    Include-dirs: /usr/local/include/mono-2.0/
+    Extra-libraries: glib-2.0, mono-2.0
+    Extra-lib-dirs: /usr/local/lib/, "C:\\Program Files (x86)\\Mono-2.10.9\\bin", "C:\\Program Files (x86)\\Mono-2.10.9\\lib"
+    Include-dirs: /usr/local/include/mono-2.0/, "C:\\Program Files (x86)\\Mono-2.10.9\\include\\mono-2.0"
     Build-depends: parsec, base, containers, template-haskell, text, utility-ht, transformers
   else
     Build-depends: parsec, base, containers, template-haskell, text, utility-ht, transformers, bytestring, Win32
